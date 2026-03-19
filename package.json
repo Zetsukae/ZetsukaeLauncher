@@ -1,0 +1,50 @@
+{
+  "name": "zetsukae-launcher",
+  "version": "1.0.0",
+  "description": "A game launcher application built with Electron",
+  "main": "main.js",
+  "homepage": "./",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder"
+  },
+  "keywords": [
+    "launcher",
+    "games",
+    "electron"
+  ],
+  "author": "Zetsukae",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^4.22.1",
+    "nodemailer": "^6.10.1"
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.6.4"
+  },
+  "build": {
+    "appId": "com.zetsukae.launcher",
+    "productName": "Zetsukae Launcher",
+    "icon": "src/assets/icon/icon.ico",
+    "linux": {
+      "icon": "src/assets/icon/icon.png",
+      "target": [
+        "AppImage"
+      ]
+    },
+    "win": {
+      "icon": "src/assets/icon/icon.ico"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*"
+    ],
+    "directories": {
+      "buildResources": "src/assets"
+    }
+  }
+}
