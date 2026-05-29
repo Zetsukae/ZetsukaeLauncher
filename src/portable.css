@@ -1,0 +1,26 @@
+body.portable-theme {
+    background: linear-gradient(180deg, #0f1724 0%, #121c2f 100%);
+    color: #f2f5fa;
+}
+
+body.portable-theme .app-container {
+    background: transparent;
+}
+
+body.portable-theme .custom-titlebar,
+body.portable-theme .titlebar-controls {
+    display: flex;
+}
+
+body.portable-theme .btn-exit-console {
+    display: none;
+}
+
+body.portable-theme .p55-bg,
+body.portable-theme .p55-top-bar,
+body.portable-theme .p55-bottom-hints,
+body.portable-theme .p55-home,
+body.portable-theme .p55-store-app-header,
+body.portable-theme .console-system-menu {
+    display: none;
+}

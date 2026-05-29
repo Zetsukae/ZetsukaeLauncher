@@ -148,7 +148,26 @@ const translations = {
         addTheGame: 'Add the game',
         cancel: 'Cancel',
         refresh: 'Refresh',
-        systemInfo: 'System Information'
+        systemInfo: 'System Information',
+        consoleLibrary: 'Library',
+        consoleStoreTitle: 'Zetsukae Store',
+        consoleHome: 'Home',
+        consoleMenu: 'Menu',
+        consoleDetails: 'Details',
+        consolePlay: 'Play',
+        consoleMenuResume: 'Resume',
+        consoleMenuSettings: 'Settings',
+        consoleMenuExitConsole: 'Exit console mode',
+        consoleMenuQuit: 'Quit application',
+        consoleEmptyLibrary: 'No games in library',
+        consoleStoreTile: 'Zetsukae Store',
+        theme: 'Theme',
+        portableTheme: 'Portable',
+        consoleTheme: 'Console',
+        loadingApps: 'Loading applications...',
+        owned: 'Owned',
+        platform: 'Platform',
+        language: 'Language'
     },
     fr: {
         // Settings
@@ -298,11 +317,32 @@ const translations = {
         addTheGame: 'Ajouter le jeu',
         cancel: 'Annuler',
         refresh: 'Rafraichir',
-        systemInfo: 'Informations Systeme'
+        systemInfo: 'Informations Système',
+        consoleLibrary: 'Bibliothèque',
+        consoleStoreTitle: 'Zetsukae Store',
+        consoleHome: 'Accueil',
+        consoleMenu: 'Menu',
+        consoleDetails: 'Détails',
+        consolePlay: 'Jouer',
+        consoleMenuResume: 'Reprendre',
+        consoleMenuSettings: 'Paramètres',
+        consoleMenuExitConsole: 'Quitter le mode console',
+        consoleMenuQuit: 'Quitter l\'application',
+        consoleEmptyLibrary: 'Aucun jeu dans la bibliothèque',
+        consoleStoreTile: 'Zetsukae Store',
+        theme: 'Thème',
+        portableTheme: 'Portable',
+        consoleTheme: 'Console',
+        loadingApps: 'Chargement des applications...',
+        owned: 'En possession',
+        platform: 'Plateforme',
+        language: 'Langue'
     }
 };
 
 // Helper function to get translation
+const APP_VERSION = 'release-abf-1.0';
+
 function t(key) {
     return translations[userLanguage]?.[key] || translations.en[key] || key;
 }
@@ -390,19 +430,24 @@ let isOnline = true; // Start as online, checkConnection will verify
 let showPrices = true; // Show prices in game cards by default
 let backgroundMusicEnabled = true; // Background music enabled by default
 
-// ZetID Authentication - Multi-account system
-const accountManager = new AccountManager(); // Initialize account manager
-const syncService = new AccountSyncService(); // Initialize sync service
 let currentUser = null; // { zetId, username, email, profilePic, githubToken, createdAt }
 let sessionToken = null;
+let steamGames = [];
+let appTheme = 'portable';
+let consoleFocusedIndex = 0;
+let consoleShelfItems = [];
+let storeAppOpen = false;
+let consoleMenuOpen = false;
+let consoleMenuIndex = 0;
+let consoleShelfReady = false;
+let lastConsoleFocusIndex = -1;
+let gamepadConnected = false;
 
 const DEFAULT_REPO_URL = 'https://github.com/Zetsukae/streamix';
 const FOLDER_REPO_URL = 'https://github.com/Zetsukae/ZetsukaeLauncher';
 const GAMES_STORAGE_KEY = 'zetsukae_launcher_games';
 const CUSTOM_GAMES_KEY = 'zetsukae_launcher_custom_games';
 const SETTINGS_STORAGE_KEY = 'zetsukae_launcher_settings';
-const ZETID_STORAGE_KEY = 'zetid_user_data'; // Legacy - used for migration
-const ZETID_SESSION_KEY = 'zetid_session_token';
 
 // ==================== DOM ELEMENTS ====================
 const storeView = document.getElementById('storeView');
@@ -454,48 +499,27 @@ const quitAppBtn = document.getElementById('quitAppBtn');
 // Settings customisation
 const showPricesCheckbox = document.getElementById('showPricesCheckbox');
 const backgroundMusicCheckbox = document.getElementById('backgroundMusicCheckbox');
+const themeSelector = document.getElementById('themeSelector');
 const backgroundMusic = document.getElementById('backgroundMusic');
+const swapSound = document.getElementById('swapSound');
 const languageSelector = document.getElementById('languageSelector');
 const fullscreenCheckbox = document.getElementById('fullscreenCheckbox');
 
-// ZetID Authentication elements
-const authContainer = document.getElementById('authContainer');
-const loginForm = document.getElementById('loginForm');
-const registerForm = document.getElementById('registerForm');
-const switchToRegister = document.getElementById('switchToRegister');
-const switchToLogin = document.getElementById('switchToLogin');
-const loginBtn = document.getElementById('loginBtn');
-const registerBtn = document.getElementById('registerBtn');
-const skipAuthBtn = document.getElementById('skipAuthBtn');
-const loginEmailInput = document.getElementById('loginEmailInput');
-const loginPasswordInput = document.getElementById('loginPasswordInput');
-const registerUsernameInput = document.getElementById('registerUsernameInput');
-const registerEmailInput = document.getElementById('registerEmailInput');
-const registerPasswordInput = document.getElementById('registerPasswordInput');
-const registerPasswordConfirmInput = document.getElementById('registerPasswordConfirmInput');
-const githubTokenInput = document.getElementById('githubTokenInput');
-const loginError = document.getElementById('loginError');
-const registerError = document.getElementById('registerError');
+function escapeForOnclick(text) {
+    return text.replace(/'/g, "\\'");
+}
 
-// Profile picture elements
-const profilePicPreview = document.getElementById('profilePicPreview');
-const profilePicUrl = document.getElementById('profilePicUrl');
-const uploadProfilePicBtn = document.getElementById('uploadProfilePicBtn');
-
-// Account settings elements
-const accountLoggedOut = document.getElementById('accountLoggedOut');
-const accountLoggedIn = document.getElementById('accountLoggedIn');
-const loginFromSettingsBtn = document.getElementById('loginFromSettingsBtn');
-const logoutBtn = document.getElementById('logoutBtn');
-const syncDataBtn = document.getElementById('syncDataBtn');
-const accountUsername = document.getElementById('accountUsername');
-const accountEmail = document.getElementById('accountEmail');
-const accountZetId = document.getElementById('accountZetId');
-const settingsProfilePic = document.getElementById('settingsProfilePic');
-const changeProfilePicBtn = document.getElementById('changeProfilePicBtn');
-const deleteAccountBtn = document.getElementById('deleteAccountBtn');
-const saveGithubTokenBtn = document.getElementById('saveGithubTokenBtn');
-const tokenStatus = document.getElementById('tokenStatus');
+async function detectSteamGames() {
+    try {
+        const detected = await window.electron.detectSteamGames();
+        steamGames = Array.isArray(detected) ? detected : [];
+        console.log(`✅ Steam games detected: ${steamGames.length}`, steamGames);
+        refreshConsoleHomeIfNeeded();
+    } catch (error) {
+        console.error('Erreur lors de la détection des jeux Steam:', error);
+        steamGames = [];
+    }
+}
 
 // ==================== EVENT LISTENERS ====================
 // Window controls
@@ -618,483 +642,6 @@ clearCacheBtn.addEventListener('click', () => {
     }
 });
 
-// ==================== ZETID AUTHENTICATION ====================
-// Auth form switching
-switchToRegister.addEventListener('click', (e) => {
-    e.preventDefault();
-    loginForm.classList.remove('active');
-    registerForm.classList.add('active');
-    // Reset profile picture
-    profilePicPreview.style.backgroundImage = '';
-    profilePicPreview.textContent = '📷';
-    profilePicUrl.value = '';
-});
-
-switchToLogin.addEventListener('click', (e) => {
-    e.preventDefault();
-    registerForm.classList.remove('active');
-    loginForm.classList.add('active');
-});
-
-// Login
-loginBtn.addEventListener('click', handleLogin);
-loginPasswordInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') handleLogin();
-});
-
-// Register
-registerBtn.addEventListener('click', handleRegister);
-registerPasswordConfirmInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') handleRegister();
-});
-
-// Profile picture upload
-profilePicUrl.addEventListener('input', (e) => {
-    if (e.target.value) {
-        profilePicPreview.style.backgroundImage = `url('${e.target.value}')`;
-        profilePicPreview.style.backgroundSize = 'cover';
-        profilePicPreview.style.backgroundPosition = 'center';
-        profilePicPreview.textContent = '';
-    }
-});
-
-uploadProfilePicBtn.addEventListener('click', async () => {
-    const imageUrl = await window.electron.selectImage();
-    if (imageUrl) {
-        profilePicUrl.value = imageUrl;
-        profilePicPreview.style.backgroundImage = `url('${imageUrl}')`;
-        profilePicPreview.style.backgroundSize = 'cover';
-        profilePicPreview.style.backgroundPosition = 'center';
-        profilePicPreview.textContent = '';
-    }
-});
-
-// Skip auth
-skipAuthBtn.addEventListener('click', skipAuthentication);
-
-// Account management buttons
-loginFromSettingsBtn.addEventListener('click', () => {
-    settingsModal.classList.remove('active');
-    authContainer.style.display = 'flex';
-    loginForm.classList.add('active');
-    registerForm.classList.remove('active');
-});
-
-logoutBtn.addEventListener('click', handleLogout);
-syncDataBtn.addEventListener('click', handleDataSync);
-changeProfilePicBtn.addEventListener('click', handleChangeProfilePic);
-deleteAccountBtn.addEventListener('click', handleDeleteAccount);
-saveGithubTokenBtn.addEventListener('click', handleSaveGithubToken);
-
-// Add click listeners to reveal hidden info
-accountEmail.addEventListener('click', revealInfo);
-accountZetId.addEventListener('click', revealInfo);
-
-// ==================== ZETID FUNCTIONS ====================
-async function handleLogin() {
-    const emailOrUsername = loginEmailInput.value.trim();
-    const password = loginPasswordInput.value.trim();
-    loginError.textContent = '';
-
-    if (!emailOrUsername || !password) {
-        loginError.textContent = t('fillAllFields');
-        return;
-    }
-
-    try {
-        // Use AccountManager to authenticate
-        const result = accountManager.authenticateAccount(emailOrUsername, password);
-        
-        if (!result.success) {
-            loginError.textContent = result.error;
-            return;
-        }
-
-        // Create session with authenticated account
-        currentUser = result.account;
-        sessionToken = 'session_' + Date.now() + '_' + Math.random();
-        localStorage.setItem(ZETID_SESSION_KEY, sessionToken);
-
-        console.log('✅ Login successful:', currentUser.username);
-        hideAuthScreen();
-        
-    } catch (error) {
-        console.error('Login error:', error);
-        loginError.textContent = t('loginError');
-    }
-}
-
-async function handleRegister() {
-    const username = registerUsernameInput.value.trim();
-    const email = registerEmailInput.value.trim();
-    const password = registerPasswordInput.value.trim();
-    const passwordConfirm = registerPasswordConfirmInput.value.trim();
-    const githubToken = githubTokenInput.value.trim();
-    const profilePic = profilePicUrl.value.trim();
-    registerError.textContent = '';
-
-    // Validation
-    if (!username || !email || !password || !passwordConfirm) {
-        registerError.textContent = t('fillRequiredFields');
-        return;
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        registerError.textContent = t('invalidEmailShort');
-        return;
-    }
-
-    if (username.length < 3) {
-        registerError.textContent = t('usernameMinLength');
-        return;
-    }
-
-    if (password.length < 6) {
-        registerError.textContent = t('passwordMinLength');
-        return;
-    }
-
-    if (password !== passwordConfirm) {
-        registerError.textContent = t('passwordsNoMatch');
-        return;
-    }
-
-    try {
-        // Use AccountManager to create account
-        const result = accountManager.createAccount(
-            username, 
-            email, 
-            password, 
-            profilePic || null,
-            githubToken || null
-        );
-
-        if (!result.success) {
-            registerError.textContent = result.error;
-            return;
-        }
-
-        // Auto-login with new account
-        const newAccount = result.account;
-        currentUser = {
-            zetId: newAccount.zetId,
-            username: newAccount.username,
-            email: newAccount.email,
-            profilePic: newAccount.profilePic,
-            githubToken: newAccount.githubToken,
-            createdAt: newAccount.createdAt
-        };
-
-        sessionToken = 'session_' + Date.now() + '_' + Math.random();
-        localStorage.setItem(ZETID_SESSION_KEY, sessionToken);
-
-        console.log('✅ Registration successful:', newAccount.zetId);
-        
-        hideAuthScreen();
-
-    } catch (error) {
-        console.error('Register error:', error);
-        registerError.textContent = t('registerError');
-    }
-}
-
-function skipAuthentication() {
-    console.log('⏭️ Skipping authentication');
-    hideAuthScreen();
-}
-
-function hideAuthScreen() {
-    authContainer.style.display = 'none';
-    // Load app content
-    loadAllGames();
-    startCarouselTimer();
-    updateAccountDisplay();
-}
-
-function checkAuthStatus() {
-    // Migrate old single-account system if exists
-    const migrationResult = accountManager.migrateFromSingleAccount();
-    if (migrationResult.migrated) {
-        console.log('✅ Migrated legacy account:', migrationResult.zetId);
-    }
-
-    // Check if user is already logged in
-    const session = localStorage.getItem(ZETID_SESSION_KEY);
-    
-    if (session) {
-        // Find the account by checking all accounts for potential match
-        // Since we don't store which account is logged in, we'll look for any account
-        // A better approach would be to store currentSessionUser in localStorage
-        const accounts = accountManager.getAllAccounts();
-        
-        // For now, if there's a session, assume the user wants to login with the last account
-        // This is a simple approach - in production, store currentSessionUser separately
-        if (accounts.length > 0) {
-            // Try to restore from old single-account system first
-            const oldUserData = localStorage.getItem(ZETID_STORAGE_KEY);
-            if (oldUserData) {
-                try {
-                    const oldUser = JSON.parse(oldUserData);
-                    const matchedAccount = accounts.find(acc => acc.zetId === oldUser.zetId);
-                    if (matchedAccount) {
-                        currentUser = {
-                            zetId: matchedAccount.zetId,
-                            username: matchedAccount.username,
-                            email: matchedAccount.email,
-                            profilePic: matchedAccount.profilePic,
-                            githubToken: matchedAccount.githubToken,
-                            createdAt: matchedAccount.createdAt
-                        };
-                        sessionToken = session;
-                        hideAuthScreen();
-                        updateAccountDisplay();
-                        return;
-                    }
-                } catch (error) {
-                    console.warn('Could not restore from old account data:', error);
-                }
-            }
-            
-            // If we get here but have a session, show auth screen
-            // User must login again with the new multi-account system
-            console.log('⚠️ Session found but accounts migrated. Please login again.');
-            authContainer.style.display = 'flex';
-        }
-    }
-}
-
-function updateAccountDisplay() {
-    if (currentUser) {
-        accountLoggedOut.style.display = 'none';
-        accountLoggedIn.style.display = 'block';
-        accountUsername.textContent = currentUser.username;
-        
-        // Hide email and zetId by default - click to reveal
-        accountEmail.textContent = t('clickToReveal');
-        accountEmail.classList.add('info-hidden');
-        accountEmail.classList.remove('revealed');
-        
-        accountZetId.textContent = t('clickToReveal');
-        accountZetId.classList.add('info-hidden');
-        accountZetId.classList.remove('revealed');
-        
-        // Update profile picture
-        if (currentUser.profilePic) {
-            settingsProfilePic.style.backgroundImage = `url('${currentUser.profilePic}')`;
-            settingsProfilePic.style.backgroundSize = 'cover';
-            settingsProfilePic.style.backgroundPosition = 'center';
-            settingsProfilePic.textContent = '';
-        } else {
-            settingsProfilePic.style.backgroundImage = '';
-            settingsProfilePic.textContent = '👤';
-        }
-        
-        // Update GitHub token field
-        if (currentUser.githubToken) {
-            // Show masked token
-            githubTokenInput.value = currentUser.githubToken;
-            githubTokenInput.placeholder = t('existingToken');
-            tokenStatus.textContent = t('tokenRegistered');
-            tokenStatus.style.color = 'var(--steam-gray)';
-        } else {
-            githubTokenInput.value = '';
-            githubTokenInput.placeholder = 'ghp_...';
-            tokenStatus.textContent = t('noTokenRegistered');
-            tokenStatus.style.color = 'var(--steam-gray)';
-        }
-    } else {
-        accountLoggedOut.style.display = 'block';
-        accountLoggedIn.style.display = 'none';
-    }
-}
-
-function handleLogout() {
-    if (confirm(t('confirmLogout'))) {
-        currentUser = null;
-        sessionToken = null;
-        localStorage.removeItem(ZETID_SESSION_KEY);
-        console.log('Logout successful');
-        updateAccountDisplay();
-        alert(t('loggedOut'));
-    }
-}
-
-async function handleChangeProfilePic() {
-    try {
-        const imageUrl = await window.electron.selectImage();
-        if (imageUrl && currentUser) {
-            // Use AccountManager to update profile picture
-            const result = accountManager.updateProfilePic(currentUser.zetId, imageUrl);
-            
-            if (!result.success) {
-                alert(t('errorChangingPhoto') + ': ' + result.error);
-                return;
-            }
-
-            // Update currentUser object
-            currentUser.profilePic = imageUrl;
-            
-            // Update display immediately
-            updateAccountDisplay();
-            
-            console.log('Profile picture updated:', imageUrl);
-            alert(t('profilePicUpdated'));
-        }
-    } catch (error) {
-        console.error('Error changing profile picture:', error);
-        alert(t('errorChangingPhoto'));
-    }
-}
-
-function handleSaveGithubToken() {
-    if (!currentUser) {
-        alert(t('mustBeLoggedIn'));
-        return;
-    }
-
-    // Check if input element exists
-    if (!githubTokenInput) {
-        alert(t('tokenNotFound'));
-        console.error('githubTokenInput element not found');
-        return;
-    }
-
-    const token = githubTokenInput.value.trim();
-    
-    console.log('Token value:', token); // Debug log
-    
-    // If empty, ask confirmation to remove token
-    if (!token) {
-        const confirmDelete = confirm(t('confirmDeleteToken'));
-        if (!confirmDelete) return;
-    }
-    
-    // Validate token format if not empty
-    if (token && !token.startsWith('ghp_')) {
-        alert(t('invalidTokenFormat'));
-        return;
-    }
-
-    try {
-        // Use AccountManager to update GitHub token
-        const result = accountManager.updateGithubToken(currentUser.zetId, token || null);
-        
-        if (!result.success) {
-            alert('Error: ' + result.error);
-            return;
-        }
-
-        // Update currentUser object
-        currentUser.githubToken = token || null;
-        
-        if (token) {
-            tokenStatus.textContent = t('tokenSavedSuccess');
-            tokenStatus.style.color = 'var(--steam-light-blue)';
-            console.log('Token saved:', token.substring(0, 10) + '...');
-        } else {
-            tokenStatus.textContent = t('tokenDeleted');
-            tokenStatus.style.color = 'var(--steam-gray)';
-            console.log('Token deleted');
-        }
-        
-        // Immediately refresh display to show token
-        updateAccountDisplay();
-        
-        // Apply current language to new text nodes
-        updateUILanguage();
-        
-    } catch (error) {
-        console.error('Error saving GitHub token:', error);
-        alert(t('errorSavingToken') + ': ' + error.message);
-    }
-}
-
-function revealInfo(event) {
-    const element = event.target;
-    if (element.classList.contains('info-hidden')) {
-        element.classList.add('revealed');
-        // Show the actual value instead of placeholder
-        if (element.id === 'accountEmail') {
-            element.textContent = currentUser.email;
-        } else if (element.id === 'accountZetId') {
-            element.textContent = currentUser.zetId;
-        }
-    }
-}
-
-function handleDeleteAccount() {
-    if (!currentUser) {
-        alert(t('mustBeLoggedInDelete'));
-        return;
-    }
-
-    // Double confirmation
-    const firstConfirm = confirm(
-        t('deleteAccountWarning').replace('{zetId}', currentUser.zetId)
-    );
-
-    if (!firstConfirm) return;
-
-    const secondConfirm = confirm(
-        t('deleteAccountFinal')
-    );
-
-    if (!secondConfirm) return;
-
-    try {
-        // Use AccountManager to delete account
-        const result = accountManager.deleteAccount(currentUser.zetId);
-        
-        if (!result.success) {
-            alert(t('errorDeletingAccount') + ': ' + result.error);
-            return;
-        }
-        currentUser = null;
-        sessionToken = null;
-        localStorage.removeItem(ZETID_SESSION_KEY);
-
-        console.log('Account deleted permanently');
-        alert(t('accountDeleted'));
-
-        // Go back to auth screen
-        settingsModal.classList.remove('active');
-        authContainer.style.display = 'flex';
-        loginForm.classList.add('active');
-        registerForm.classList.remove('active');
-
-    } catch (error) {
-        console.error('Error deleting account:', error);
-        alert(t('errorDeletingAccount'));
-    }
-}
-
-async function handleDataSync() {
-    if (!currentUser || !currentUser.githubToken) {
-        alert(t('needTokenToSync'));
-        return;
-    }
-
-    try {
-        // Prepare data to sync
-        const dataToSync = {
-            games: localStorage.getItem(GAMES_STORAGE_KEY),
-            customGames: localStorage.getItem(CUSTOM_GAMES_KEY),
-            settings: localStorage.getItem(SETTINGS_STORAGE_KEY),
-            syncedAt: new Date().toISOString()
-        };
-
-        console.log('📤 Synchronizing data with GitHub Gist...', dataToSync);
-        
-        // In production: would upload to GitHub Gist here
-        // For now, just show success message
-        alert(t('dataSynced'));
-
-    } catch (error) {
-        console.error('Sync error:', error);
-        alert(t('syncError'));
-    }
-}
-
 // Settings sections navigation
 document.querySelectorAll('.settings-nav-item').forEach(button => {
     button.addEventListener('click', () => {
@@ -1148,13 +695,15 @@ addGameForm.addEventListener('submit', async (e) => {
 });
 
 // Initial load
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
     loadSettings(); // Load user preferences including language
     updateUILanguage(); // Apply language to UI
-    checkAuthStatus(); // Check if user is already logged in
-    switchSection('store'); // Display store by default
+    await detectSteamGames();
+    refreshConsoleHomeIfNeeded();
+    switchSection(isConsoleMode() ? 'library' : 'store');
     checkConnection();
     populateSettingsInfo();
+    initConsoleControls();
 });
 
 // Populate settings info
@@ -1191,6 +740,11 @@ function loadSettings() {
         backgroundMusicCheckbox.checked = backgroundMusicEnabled;
     }
     
+    if (themeSelector) {
+        appTheme = settings.appTheme || 'portable';
+        themeSelector.value = appTheme;
+    }
+    
     // Initialize language selector
     if (languageSelector) {
         languageSelector.value = userLanguage;
@@ -1199,8 +753,10 @@ function loadSettings() {
     // Initialize fullscreen checkbox
     if (fullscreenCheckbox) {
         const fullscreenMode = localStorage.getItem('fullscreenMode') === 'true';
-        fullscreenCheckbox.checked = fullscreenMode;
+        fullscreenCheckbox.checked = fullscreenMode || appTheme === 'console';
     }
+    
+    applyTheme();
     
     // Play or pause music based on setting
     if (backgroundMusic) {
@@ -1218,9 +774,525 @@ function loadSettings() {
 function saveSettings() {
     const settings = {
         showPrices: showPrices,
-        backgroundMusicEnabled: backgroundMusicEnabled
+        backgroundMusicEnabled: backgroundMusicEnabled,
+        appTheme: appTheme
     };
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+}
+
+function applyThemeClasses() {
+    const themeLink = document.getElementById('themeStylesheet');
+    if (themeLink) {
+        themeLink.href = appTheme === 'console' ? 'console.css' : 'portable.css';
+    }
+
+    document.body.classList.remove('portable-theme', 'console-theme');
+    document.body.classList.add(appTheme === 'console' ? 'console-theme' : 'portable-theme');
+}
+
+async function syncFullscreenState({ forceOff = false } = {}) {
+    const wantsFullscreen = !forceOff && (
+        appTheme === 'console' || localStorage.getItem('fullscreenMode') === 'true'
+    );
+
+    if (fullscreenCheckbox) {
+        fullscreenCheckbox.checked = wantsFullscreen;
+    }
+
+    if (window.electron?.setFullscreen) {
+        await window.electron.setFullscreen(wantsFullscreen).catch(() => {});
+    }
+}
+
+async function applyTheme(options = {}) {
+    applyThemeClasses();
+    updateP55Clock();
+
+    if (isConsoleMode()) {
+        if (carouselInterval) {
+            clearInterval(carouselInterval);
+            carouselInterval = null;
+        }
+        showConsoleHome();
+    } else {
+        storeAppOpen = false;
+        storeView.classList.remove('p55-store-active');
+        libraryView.classList.remove('p55-home-active');
+        document.querySelector('.p55-bottom-hints')?.style.removeProperty('display');
+        const activeSection = document.querySelector('.nav-link.active')?.dataset.section || 'store';
+        switchSection(activeSection);
+    }
+
+    await syncFullscreenState(options);
+}
+
+function isConsoleMode() {
+    return appTheme === 'console';
+}
+
+function updateP55Clock() {
+    const clockEl = document.getElementById('p55Clock');
+    if (!clockEl) return;
+
+    const tick = () => {
+        if (!document.body.classList.contains('console-theme')) return;
+        const now = new Date();
+        clockEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
+    tick();
+    if (!window._p55ClockInterval) {
+        window._p55ClockInterval = setInterval(tick, 10000);
+    }
+}
+
+const CONSOLE_MENU_ACTIONS = ['resume', 'settings', 'exit-console', 'quit'];
+
+function getSteamArtUrls(appid) {
+    const id = String(appid);
+    return {
+        thumb: [
+            `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/header.jpg`,
+            `https://cdn.akamai.steamstatic.com/steam/apps/${id}/header.jpg`,
+            `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/capsule_616x353.jpg`,
+            `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/library_600x900.jpg`
+        ],
+        cover: [
+            `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/library_hero.jpg`,
+            `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/page_bg_generated.jpg`,
+            `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/header.jpg`
+        ]
+    };
+}
+
+function getConsoleGameThumb(game) {
+    if (game.appid) {
+        const urls = getSteamArtUrls(game.appid);
+        return game.icon || urls.thumb[0];
+    }
+    return game.icon || game.bg_icon || '';
+}
+
+function getConsoleGameCover(game) {
+    if (game.appid) {
+        const urls = getSteamArtUrls(game.appid);
+        return game.bg_icon || urls.cover[0];
+    }
+    return game.bg_icon || game.icon || '';
+}
+
+function handleConsoleTileImageError(img) {
+    const appid = img.dataset.appid;
+    const kind = img.dataset.artKind || 'thumb';
+    const urls = appid ? getSteamArtUrls(appid)[kind] : [];
+    const nextIndex = parseInt(img.dataset.tryIndex || '0', 10) + 1;
+    img.dataset.tryIndex = String(nextIndex);
+
+    if (nextIndex < urls.length) {
+        img.src = urls[nextIndex];
+        return;
+    }
+
+    img.onerror = null;
+    img.src = 'data:image/svg+xml,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect fill="#2a2d35" width="100%" height="100%"/><text x="50%" y="50%" text-anchor="middle" dy=".35em" fill="#8b959e" font-family="sans-serif" font-size="13">Pas d\'image</text></svg>'
+    );
+}
+
+window.handleConsoleTileImageError = handleConsoleTileImageError;
+
+function getAllLibraryGames() {
+    const customGames = getCustomGames();
+    const cachedGames = isOnline ? [] : getCachedGames();
+    const steamTitles = new Set(steamGames.map(game => game.title));
+    const cachedTitles = new Set(cachedGames.map(game => game.title));
+    const isOwnedLauncherGame = (game) => {
+        return !!steamGames.find(s => s.title === game.title) || !!getGamePath(game.title);
+    };
+    const storeGamesWithoutDuplicates = games.filter(game =>
+        isOwnedLauncherGame(game) &&
+        !steamTitles.has(game.title) &&
+        !cachedTitles.has(game.title)
+    );
+    return [...steamGames, ...storeGamesWithoutDuplicates, ...customGames, ...cachedGames];
+}
+
+function buildConsoleShelfItems() {
+    const libraryGames = getAllLibraryGames();
+    const items = libraryGames.map(game => ({
+        type: 'game',
+        game,
+        title: game.title,
+        thumb: getConsoleGameThumb(game),
+        cover: getConsoleGameCover(game)
+    }));
+    items.push({ type: 'store', title: 'Zetsukae Store', thumb: null, cover: null });
+    return items;
+}
+
+function renderConsoleStoreTile(focused, index) {
+    return `
+        <div class="p55-tile p55-tile-store ${focused ? 'p55-tile-focused' : ''}" data-index="${index}" data-type="store" role="listitem">
+            <div class="p55-tile-store-inner">
+                <span class="p55-store-icon" aria-hidden="true">🛒</span>
+                <span class="p55-tile-store-label">${t('consoleStoreTile')}</span>
+            </div>
+        </div>
+    `;
+}
+
+function displayConsoleHomeShelf() {
+    const shelf = document.getElementById('consoleHomeShelf');
+    if (!shelf || !isConsoleMode()) return;
+
+    consoleShelfItems = buildConsoleShelfItems();
+
+    if (consoleFocusedIndex >= consoleShelfItems.length) {
+        consoleFocusedIndex = 0;
+    }
+
+    const gameTiles = consoleShelfItems.slice(0, -1).map((item, i) => {
+        const appid = item.game?.appid ? String(item.game.appid) : '';
+        const thumb = item.thumb || '';
+        return `
+            <div class="p55-tile p55-tile-game ${i === consoleFocusedIndex ? 'p55-tile-focused' : ''}"
+                 data-index="${i}" data-type="game" role="listitem">
+                <img src="${thumb}" alt="${item.title}" referrerpolicy="no-referrer"
+                     data-appid="${appid}" data-art-kind="thumb" data-try-index="0"
+                     onerror="handleConsoleTileImageError(this)">
+            </div>`;
+    }).join('');
+
+    const storeIndex = consoleShelfItems.length - 1;
+    const storeTile = renderConsoleStoreTile(storeIndex === consoleFocusedIndex, storeIndex);
+
+    if (consoleShelfItems.length === 1) {
+        shelf.innerHTML = storeTile + `<div class="p55-shelf-empty">${t('consoleEmptyLibrary')}</div>`;
+    } else {
+        shelf.innerHTML = gameTiles + storeTile;
+    }
+
+    bindConsoleShelfEvents();
+    consoleShelfReady = false;
+    setConsoleFocus(consoleFocusedIndex, false);
+    consoleShelfReady = true;
+}
+
+function bindConsoleShelfEvents() {
+    document.querySelectorAll('#consoleHomeShelf .p55-tile').forEach(tile => {
+        tile.addEventListener('click', () => {
+            setConsoleFocus(parseInt(tile.dataset.index, 10));
+            activateConsoleSelection();
+        });
+        tile.addEventListener('mouseenter', () => {
+            setConsoleFocus(parseInt(tile.dataset.index, 10), false);
+        });
+    });
+}
+
+function setConsoleFocus(index, scroll = true) {
+    if (!isConsoleMode() || consoleShelfItems.length === 0) return;
+
+    const previousIndex = consoleFocusedIndex;
+    consoleFocusedIndex = Math.max(0, Math.min(index, consoleShelfItems.length - 1));
+
+    if (consoleShelfReady && previousIndex !== consoleFocusedIndex) {
+        playSwapSound();
+    }
+
+    document.querySelectorAll('#consoleHomeShelf .p55-tile').forEach(tile => {
+        tile.classList.toggle('p55-tile-focused', parseInt(tile.dataset.index, 10) === consoleFocusedIndex);
+    });
+
+    const item = consoleShelfItems[consoleFocusedIndex];
+    const titleEl = document.getElementById('p55FocusedTitle');
+    if (titleEl) {
+        titleEl.textContent = item?.type === 'game' ? item.title : '';
+    }
+
+    updateConsoleBackground(item);
+
+    if (scroll) {
+        document.querySelector('#consoleHomeShelf .p55-tile-focused')
+            ?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+}
+
+function updateConsoleBackground(item) {
+    const bgImg = document.getElementById('p55BgImage');
+    if (!bgImg) return;
+
+    if (!item || item.type !== 'game' || !item.cover) {
+        bgImg.removeAttribute('src');
+        bgImg.style.opacity = '0';
+        return;
+    }
+
+    const appid = item.game?.appid;
+    const coverUrls = appid
+        ? getSteamArtUrls(appid).cover
+        : [item.cover];
+    let urlIndex = 0;
+
+    const tryNext = () => {
+        if (urlIndex >= coverUrls.length) {
+            bgImg.classList.remove('is-changing');
+            return;
+        }
+        const img = new Image();
+        img.referrerPolicy = 'no-referrer';
+        img.onload = () => {
+            bgImg.src = coverUrls[urlIndex];
+            bgImg.classList.remove('is-changing');
+            bgImg.style.opacity = '1';
+        };
+        img.onerror = () => {
+            urlIndex += 1;
+            tryNext();
+        };
+        img.src = coverUrls[urlIndex];
+    };
+
+    bgImg.classList.add('is-changing');
+    tryNext();
+}
+
+function getConsoleFocusedItem() {
+    return consoleShelfItems[consoleFocusedIndex] || null;
+}
+
+function activateConsoleSelection() {
+    const item = getConsoleFocusedItem();
+    if (!item) return;
+
+    if (item.type === 'store') {
+        openStoreApp();
+    } else if (item.game) {
+        launchGameFromCard(item.game.title);
+    }
+}
+
+function showConsoleDetails() {
+    const item = getConsoleFocusedItem();
+    if (!item) return;
+
+    if (item.type === 'store') {
+        openStoreApp();
+    } else {
+        openGameModalByTitle(item.game.title);
+    }
+}
+
+function showConsoleHome() {
+    storeAppOpen = false;
+    storeView.classList.remove('p55-store-active');
+    storeView.style.display = 'none';
+    communityView.style.display = 'none';
+    libraryView.style.display = 'flex';
+    libraryView.classList.add('p55-home-active');
+    document.querySelector('.p55-bottom-hints')?.style.removeProperty('display');
+    displayConsoleHomeShelf();
+}
+
+function openStoreApp() {
+    if (!isOnline) return;
+
+    closeConsoleSystemMenu();
+    storeAppOpen = true;
+    libraryView.classList.remove('p55-home-active');
+    libraryView.style.display = 'none';
+    communityView.style.display = 'none';
+    storeView.style.display = 'flex';
+    storeView.classList.add('p55-store-active');
+    document.querySelector('.p55-bottom-hints')?.style.setProperty('display', 'none');
+    displayGameCards(storeView.querySelector('#gamesGrid'), games);
+}
+
+function closeStoreApp() {
+    if (!isConsoleMode()) return;
+    showConsoleHome();
+}
+
+function playSwapSound() {
+    if (!swapSound) return;
+    swapSound.currentTime = 0;
+    swapSound.volume = 0.4;
+    swapSound.play().catch(() => {});
+}
+
+function updateGamepadHints() {
+    const pads = navigator.getGamepads?.() || [];
+    const connected = [...pads].some(pad => pad && pad.connected);
+    if (connected === gamepadConnected) return;
+    gamepadConnected = connected;
+    document.body.classList.toggle('gamepad-active', connected);
+}
+
+function initGamepadDetection() {
+    updateGamepadHints();
+    window.addEventListener('gamepadconnected', updateGamepadHints);
+    window.addEventListener('gamepaddisconnected', updateGamepadHints);
+    setInterval(updateGamepadHints, 2000);
+}
+
+function updateConsoleUI() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.dataset.i18n;
+        if (translations[userLanguage]?.[key] || translations.en[key]) {
+            el.textContent = t(key);
+        }
+    });
+
+    const versionEl = document.querySelector('.version-text');
+    if (versionEl) {
+        versionEl.textContent = APP_VERSION;
+    }
+
+    refreshConsoleHomeIfNeeded();
+}
+
+function refreshConsoleHomeIfNeeded() {
+    if (isConsoleMode() && !storeAppOpen) {
+        displayConsoleHomeShelf();
+    }
+}
+
+function isConsoleOverlayOpen() {
+    return consoleMenuOpen
+        || settingsModal.classList.contains('active')
+        || gameModal.classList.contains('active')
+        || addGameModal.classList.contains('active');
+}
+
+function setConsoleMenuIndex(index) {
+    const items = document.querySelectorAll('.console-menu-item');
+    if (!items.length) return;
+
+    consoleMenuIndex = Math.max(0, Math.min(index, items.length - 1));
+    items.forEach((item, i) => {
+        item.classList.toggle('active', i === consoleMenuIndex);
+    });
+}
+
+function openConsoleSystemMenu() {
+    const menu = document.getElementById('consoleSystemMenu');
+    if (!menu || !isConsoleMode()) return;
+
+    consoleMenuOpen = true;
+    consoleMenuIndex = 0;
+    menu.classList.add('open');
+    menu.setAttribute('aria-hidden', 'false');
+    setConsoleMenuIndex(0);
+}
+
+function closeConsoleSystemMenu() {
+    const menu = document.getElementById('consoleSystemMenu');
+    if (!menu) return;
+
+    consoleMenuOpen = false;
+    menu.classList.remove('open');
+    menu.setAttribute('aria-hidden', 'true');
+}
+
+function activateConsoleMenuItem() {
+    const action = CONSOLE_MENU_ACTIONS[consoleMenuIndex];
+    closeConsoleSystemMenu();
+
+    if (action === 'resume') return;
+    if (action === 'settings') {
+        settingsModal.classList.add('active');
+        return;
+    }
+    if (action === 'exit-console') {
+        exitConsoleMode();
+        return;
+    }
+    if (action === 'quit') {
+        window.electron.windowClose();
+    }
+}
+
+function initConsoleControls() {
+    document.getElementById('storeAppBackBtn')?.addEventListener('click', closeStoreApp);
+
+    document.getElementById('p55HintMenu')?.addEventListener('click', openConsoleSystemMenu);
+    document.getElementById('p55HintDetails')?.addEventListener('click', showConsoleDetails);
+    document.getElementById('p55HintPlay')?.addEventListener('click', activateConsoleSelection);
+
+    document.querySelectorAll('.console-menu-item').forEach((item, index) => {
+        item.addEventListener('mouseenter', () => setConsoleMenuIndex(index));
+        item.addEventListener('click', () => {
+            setConsoleMenuIndex(index);
+            activateConsoleMenuItem();
+        });
+    });
+
+    document.querySelector('.console-system-menu-backdrop')?.addEventListener('click', closeConsoleSystemMenu);
+
+    initGamepadDetection();
+
+    document.addEventListener('keydown', (e) => {
+        if (!isConsoleMode()) return;
+
+        if (e.key === 'Escape') {
+            if (consoleMenuOpen) {
+                closeConsoleSystemMenu();
+                e.preventDefault();
+                return;
+            }
+            if (!isConsoleOverlayOpen()) {
+                openConsoleSystemMenu();
+                e.preventDefault();
+            }
+            return;
+        }
+
+        if (consoleMenuOpen) {
+            if (e.key === 'ArrowDown') {
+                setConsoleMenuIndex(consoleMenuIndex + 1);
+                e.preventDefault();
+            } else if (e.key === 'ArrowUp') {
+                setConsoleMenuIndex(consoleMenuIndex - 1);
+                e.preventDefault();
+            } else if (e.key === 'Enter') {
+                activateConsoleMenuItem();
+                e.preventDefault();
+            }
+            return;
+        }
+
+        if (storeAppOpen || isConsoleOverlayOpen()) return;
+
+        if (e.key === 'ArrowRight') {
+            setConsoleFocus(consoleFocusedIndex + 1);
+            e.preventDefault();
+        } else if (e.key === 'ArrowLeft') {
+            setConsoleFocus(consoleFocusedIndex - 1);
+            e.preventDefault();
+        } else if (e.key === 'Enter') {
+            activateConsoleSelection();
+            e.preventDefault();
+        } else if (e.key === 'i' || e.key === 'I') {
+            showConsoleDetails();
+            e.preventDefault();
+        }
+    });
+}
+
+async function exitConsoleMode() {
+    closeConsoleSystemMenu();
+    appTheme = 'portable';
+    if (themeSelector) {
+        themeSelector.value = 'portable';
+    }
+    localStorage.setItem('fullscreenMode', 'false');
+    saveSettings();
+    storeAppOpen = false;
+    storeView.classList.remove('p55-store-active');
+    libraryView.classList.remove('p55-home-active');
+    applyThemeClasses();
+    switchSection('store');
+    await syncFullscreenState({ forceOff: true });
 }
 
 // Event listener for show prices checkbox
@@ -1246,6 +1318,19 @@ if (backgroundMusicCheckbox) {
         } else {
             backgroundMusic.pause();
         }
+    });
+}
+
+// Event listener for theme selector
+if (themeSelector) {
+    themeSelector.addEventListener('change', async () => {
+        const previousTheme = appTheme;
+        appTheme = themeSelector.value;
+        if (previousTheme === 'console' && appTheme === 'portable') {
+            localStorage.setItem('fullscreenMode', 'false');
+        }
+        saveSettings();
+        await applyTheme();
     });
 }
 
@@ -1278,8 +1363,8 @@ if (fullscreenCheckbox) {
 
 // Function to update UI language
 function updateUILanguage() {
-    // Apply language to entire DOM
     applyLanguageToDOM();
+    updateConsoleUI();
     
     // Update language selector
     if (languageSelector) {
@@ -1379,6 +1464,13 @@ function applyLanguageToDOM() {
         'Appuyez sur Entrée pour rechercher': 'Press Enter to search',
         'Ma Bibliothèque': 'My Library',
         'BIBLIOTHÈQUE': 'LIBRARY',
+        'Bibliothèque': 'Library',
+        'Accueil': 'Home',
+        'Reprendre': 'Resume',
+        'Quitter le mode console': 'Exit console mode',
+        'Quitter l\'application': 'Quit application',
+        'Jouer': 'Play',
+        'Détails': 'Details',
         'Connectez-vous': 'Sign In',
         'Email ou username': 'Email or username',
         'BOUTIQUE': 'STORE',
@@ -1586,17 +1678,19 @@ async function checkConnection() {
 }
 
 function showOfflineScreenWithLibrary() {
-    // Show overlay but don't block content
     offlineOverlay.classList.add('show');
-    
-    // Load custom games + cached games (with saved paths)
+
+    if (isConsoleMode()) {
+        showConsoleHome();
+        return;
+    }
+
     const customGames = getCustomGames();
     const cachedGames = getCachedGames();
     const offlineGames = [...customGames, ...cachedGames];
-    
+
     displayGameCards(libraryGrid, offlineGames);
-    
-    // Switch to library section
+
     storeView.style.display = 'none';
     libraryView.style.display = 'block';
     communityView.style.display = 'none';
@@ -1739,8 +1833,11 @@ async function loadAllGames() {
         
         displayGameCards(container, games);
         console.log('✅ Games displayed');
-        
+
         updateCarousel();
+        if (isConsoleMode()) {
+            displayConsoleHomeShelf();
+        }
         console.log('✅ Carousel updated');
         console.log('=== ✅ LOADALLGAMES COMPLETE ===\n');
         
@@ -2013,23 +2110,48 @@ function displayGameCards(container, gamesToShow) {
     }
     
     container.innerHTML = gamesToShow.map((game, index) => {
-        const gamePath = game.exePath || getGamePath(game.title);
-        const priceNum = game.price !== null && game.price !== undefined
-            ? Number(String(game.price).trim().replace(',', '.'))
-            : null;
-        const isPaid = Number.isFinite(priceNum) && priceNum > 0;
-        const buttonText = gamePath
+        const safeTitle = escapeForOnclick(game.title || '');
+        const steamMatch = steamGames.find(s => s.title === game.title);
+        const hasLocalPath = !!getGamePath(game.title);
+        const isOwnedFromSteam = container.id === 'gamesGrid' && !!steamMatch;
+        const isOwnedByPath = container.id === 'gamesGrid' && hasLocalPath;
+        const displayGame = {
+            ...game,
+            steamLaunchUrl: game.steamLaunchUrl || steamMatch?.steamLaunchUrl,
+            steamPageUrl: game.steamPageUrl || steamMatch?.steamPageUrl,
+            website: game.website || steamMatch?.website,
+            icon: game.icon || steamMatch?.icon,
+            bg_icon: game.bg_icon || steamMatch?.bg_icon
+        };
+        const gamePath = displayGame.exePath || (hasLocalPath ? getGamePath(displayGame.title) : null);
+        const hasSteamLaunch = !!displayGame.steamLaunchUrl;
+        const hasSteamPage = !!displayGame.steamPageUrl;
+        const hasWebsite = !!displayGame.website || hasSteamPage;
+        const actionType = gamePath || hasSteamLaunch ? 'launch' : hasWebsite ? 'website' : null;
+        const buttonText = actionType === 'launch'
             ? '▶ ' + t('launchCaps')
-            : (isPaid ? '⬇ ' + t('buyVerb') : '⬇ ' + t('downloadVerb'));
-        const buttonAction = gamePath ? `launchGameFromCard('${game.title}')` : `openWebsiteFromCard('${game.title}')`;
-        const priceText = showPrices && game.price ? formatPrice(game.price) : '';
-        const priceHTML = priceText ? `<div class="game-card-price">${priceText}</div>` : '';
+            : actionType === 'website'
+                ? '🌐 ' + t('website')
+                : t('learnMore');
+        const buttonAction = actionType === 'launch'
+            ? `launchGameFromCard('${safeTitle}')`
+            : `openWebsiteFromCard('${safeTitle}')`;
+        const secondaryButton = hasSteamPage
+            ? ` <button class="game-card-secondary-btn" onclick="event.stopPropagation(); openSteamPageFromCard('${safeTitle}')">Steam Page</button>`
+            : '';
+        const priceText = (isOwnedFromSteam || isOwnedByPath)
+            ? t('owned')
+            : (showPrices && game.price ? formatPrice(game.price) : '');
+        const priceHTML = priceText ? `<div class="game-card-price${(isOwnedFromSteam || isOwnedByPath) ? ' owned' : ''}">${priceText}</div>` : '';
         
         return `
-        <div class="game-card" onclick="openGameModalByTitle('${game.title}')">
-            <img src="${game.bg_icon || game.icon}" alt="${game.title}" class="game-card-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22240%22 height=%22180%22%3E%3Crect fill=%22%232a2d30%22 width=%22240%22 height=%22180%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%238b959e%22 font-size=%2211%22%3ENo image%3C/text%3E%3C/svg%3E'">
+        <div class="game-card" onclick="openGameModalByTitle('${safeTitle}')">
+            <img src="${displayGame.icon || displayGame.bg_icon || ''}" alt="${game.title}" class="game-card-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22240%22 height=%22180%22%3E%3Crect fill=%22%232a2d30%22 width=%22240%22 height=%22180%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%238b959e%22 font-size=%2211%22%3ENo image%3C/text%3E%3C/svg%3E'">
             ${priceHTML}
-            <button class="game-card-action-btn" onclick="event.stopPropagation(); ${buttonAction}">${buttonText}</button>
+            <div class="game-card-actions">
+                <button class="game-card-action-btn" onclick="event.stopPropagation(); ${buttonAction}">${buttonText}</button>
+                ${secondaryButton}
+            </div>
             <div class="game-card-content">
                 <div>
                     <div class="game-card-title">${game.title || t('untitledGame')}</div>
@@ -2112,9 +2234,20 @@ carouselActionBtn.addEventListener('click', () => {
 
 // Switch between sections
 function switchSection(section) {
+    if (isConsoleMode()) {
+        if (section === 'store') {
+            openStoreApp();
+        } else if (section === 'library') {
+            showConsoleHome();
+        }
+        return;
+    }
+
     storeView.style.display = 'none';
     libraryView.style.display = 'none';
     communityView.style.display = 'none';
+    libraryView.classList.remove('p55-home-active');
+    storeView.classList.remove('p55-store-active');
     
     if (section === 'store') {
         if (!isOnline) {
@@ -2124,9 +2257,7 @@ function switchSection(section) {
         storeView.style.display = 'block';
     } else if (section === 'library') {
         libraryView.style.display = 'block';
-        const customGames = getCustomGames();
-        const cachedGames = isOnline ? [] : getCachedGames();
-        const allLibraryGames = [...games, ...customGames, ...cachedGames];
+        const allLibraryGames = getAllLibraryGames();
         displayGameCards(libraryGrid, allLibraryGames);
     } else if (section === 'community') {
         if (!isOnline) {
@@ -2225,10 +2356,13 @@ function openGameModal(gameIndex) {
     gameModal.classList.add('active');
 }
 
-// Open game modal by title (for custom and store games)
+// Open game modal by title (for custom, store, cached, and Steam games)
 function openGameModalByTitle(gameTitle) {
-    // Find game in store games, custom games, or cached games
-    let game = games.find(g => g.title === gameTitle);
+    // Find game in Steam games, store games, custom games, or cached games
+    let game = steamGames.find(g => g.title === gameTitle);
+    if (!game) {
+        game = games.find(g => g.title === gameTitle);
+    }
     if (!game) {
         const customGames = getCustomGames();
         game = customGames.find(g => g.title === gameTitle);
@@ -2253,14 +2387,15 @@ function openGameModalByTitle(gameTitle) {
     document.getElementById('modalHeroImage').src = game.bg_icon || game.icon || '';
     document.getElementById('modalScreenshot').src = game.icon || '';
     
-    // Check if game is installed (use exePath if available, otherwise check localStorage)
     const gamePath = game.exePath || getGamePath(game.title);
+    const hasSteamLaunch = !!game.steamLaunchUrl;
+    const hasSteamPage = !!game.steamPageUrl;
+    const hasWebsite = !!game.website || hasSteamPage;
     
-    // For custom games or cached games, hide download button if they already have exePath
-    if (game.isCustom || (game.isInstalled && game.exePath)) {
+    if (game.isCustom || (game.isInstalled && game.exePath) || hasSteamLaunch) {
         downloadBtn.style.display = 'none';
         launchBtn.style.display = 'block';
-        changePathBtn.style.display = 'block';
+        changePathBtn.style.display = gamePath ? 'block' : 'none';
         deleteBtn.style.display = game.isCustom ? 'block' : 'none';
     } else {
         downloadBtn.style.display = gamePath ? 'none' : 'block';
@@ -2270,7 +2405,8 @@ function openGameModalByTitle(gameTitle) {
         deleteBtn.style.display = 'none';
     }
     
-    websiteBtn.style.display = game.website ? 'block' : 'none';
+    websiteBtn.style.display = hasWebsite ? 'block' : 'none';
+    websiteBtn.textContent = hasSteamPage ? '🌐 Steam Page' : '🌐 ' + t('website');
     
     // Show modal
     gameModal.classList.add('active');
@@ -2322,7 +2458,7 @@ async function downloadGame() {
 // Launch game from card button
 async function launchGameFromCard(gameTitle) {
     const customGames = getCustomGames();
-    let game = games.find(g => g.title === gameTitle) || customGames.find(g => g.title === gameTitle);
+    let game = steamGames.find(g => g.title === gameTitle) || games.find(g => g.title === gameTitle) || customGames.find(g => g.title === gameTitle);
     
     if (!game && !isOnline) {
         const cachedGames = getCachedGames();
@@ -2338,16 +2474,34 @@ async function launchGameFromCard(gameTitle) {
 // Open website from card button
 async function openWebsiteFromCard(gameTitle) {
     const customGames = getCustomGames();
-    let game = games.find(g => g.title === gameTitle) || customGames.find(g => g.title === gameTitle);
+    let game = steamGames.find(g => g.title === gameTitle) || games.find(g => g.title === gameTitle) || customGames.find(g => g.title === gameTitle);
     
     if (!game && !isOnline) {
         const cachedGames = getCachedGames();
         game = cachedGames.find(g => g.title === gameTitle);
     }
     
-    if (!game || !game.website) return;
+    if (!game) return;
     
-    await window.electron.openUrl(game.website);
+    const url = game.website || game.steamPageUrl || game.launchUrl || game.steamLaunchUrl;
+    if (!url) return;
+    
+    await window.electron.openUrl(url);
+}
+
+// Open Steam page button
+async function openSteamPageFromCard(gameTitle) {
+    const customGames = getCustomGames();
+    let game = steamGames.find(g => g.title === gameTitle) || games.find(g => g.title === gameTitle) || customGames.find(g => g.title === gameTitle);
+    
+    if (!game && !isOnline) {
+        const cachedGames = getCachedGames();
+        game = cachedGames.find(g => g.title === gameTitle);
+    }
+    
+    if (!game || !game.steamPageUrl) return;
+    
+    await window.electron.openUrl(game.steamPageUrl);
 }
 
 // Change installation path
@@ -2390,7 +2544,9 @@ async function launchGame() {
     }
     
     const gamePath = currentSelectedGame.exePath || getGamePath(currentSelectedGame.title);
-    if (!gamePath) {
+    const steamLaunch = currentSelectedGame.steamLaunchUrl;
+    const launchTarget = gamePath || steamLaunch;
+    if (!launchTarget) {
         alert(t('gamePathUndefined'));
         return;
     }
@@ -2401,7 +2557,13 @@ async function launchGame() {
             backgroundMusic.muted = true;
         }
         
-        await window.electron.launchGame(gamePath);
+        if (steamLaunch && !gamePath) {
+            await window.electron.openUrl(steamLaunch);
+        } else {
+            await window.electron.launchGame(launchTarget);
+        }
+        
+        window.electron.windowClose();
         
         // Unmute music when game is closed (user returns to launcher)
         backgroundMusicCheckbox.focus();
@@ -2418,8 +2580,10 @@ async function launchGame() {
 
 // Open website
 function openWebsite() {
-    if (currentSelectedGame && currentSelectedGame.website) {
-        window.electron.openUrl(currentSelectedGame.website);
+    if (!currentSelectedGame) return;
+    const url = currentSelectedGame.website || currentSelectedGame.steamPageUrl || currentSelectedGame.steamLaunchUrl;
+    if (url) {
+        window.electron.openUrl(url);
     }
 }
 
@@ -2461,6 +2625,7 @@ async function addCustomGame() {
         const allGames = [...games, ...getCustomGames()];
         displayGameCards(libraryGrid, allGames);
     }
+    refreshConsoleHomeIfNeeded();
 
     alert(t('gameAdded'));
 }
@@ -2505,6 +2670,7 @@ function deleteCustomGame() {
         const allGames = [...games, ...getCustomGames()];
         displayGameCards(libraryGrid, allGames);
     }
+    refreshConsoleHomeIfNeeded();
 
     alert(t('gameDeleted'));
 }

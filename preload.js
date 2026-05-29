@@ -7,9 +7,11 @@ contextBridge.exposeInMainWorld('electron', {
   getOS: () => ipcRenderer.invoke('get-os'),
   selectPath: (gameName) => ipcRenderer.invoke('select-path', gameName),
   openUrl: (url) => ipcRenderer.invoke('open-url', url),
+  detectSteamGames: () => ipcRenderer.invoke('detect-steam-games'),
   windowMinimize: () => ipcRenderer.invoke('window-minimize'),
   windowMaximize: () => ipcRenderer.invoke('window-maximize'),
   windowClose: () => ipcRenderer.invoke('window-close'),
   selectImage: () => ipcRenderer.invoke('select-image'),
   setFullscreen: (isFullscreen) => ipcRenderer.invoke('set-fullscreen', isFullscreen),
+  isFullscreen: () => ipcRenderer.invoke('is-fullscreen'),
 });

@@ -28,271 +28,34 @@ html, body {
     user-select: none;
 }
 
+.btn-exit-console {
+    display: none;
+    margin-left: 14px;
+    border: 1px solid rgba(255,255,255,0.16);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    border-radius: 999px;
+    padding: 8px 14px;
+    transition: background 0.2s ease, transform 0.2s ease;
+    cursor: pointer;
+}
+
+.btn-exit-console:hover {
+    background: rgba(255,255,255,0.14);
+}
+
+.p55-bg,
+.p55-top-bar,
+.p55-bottom-hints,
+.console-system-menu {
+    display: none;
+}
+
 .app-container {
     width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
-}
-
-/* =====================
-   ZETID AUTHENTICATION
-   ===================== */
-.auth-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(135deg, #0b0e11 0%, #1a1d20 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    flex-direction: column;
-    gap: 30px;
-}
-
-.auth-modal {
-    background: var(--steam-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 40px;
-    width: 100%;
-    max-width: 420px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-}
-
-.auth-header {
-    text-align: center;
-    margin-bottom: 30px;
-}
-
-.auth-header h1 {
-    font-size: 28px;
-    color: var(--steam-light-blue);
-    margin-bottom: 10px;
-    font-weight: 600;
-}
-
-.auth-header p {
-    color: var(--text-secondary);
-    font-size: 14px;
-}
-
-.auth-form {
-    display: none;
-}
-
-.auth-form.active {
-    display: block;
-    animation: fadeIn 0.3s ease-in-out;
-}
-
-.auth-form h2 {
-    font-size: 20px;
-    color: var(--text-primary);
-    margin-bottom: 20px;
-}
-
-.form-group {
-    margin-bottom: 18px;
-}
-
-.form-group label {
-    display: block;
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-bottom: 6px;
-    font-weight: 500;
-}
-
-.auth-input {
-    width: 100%;
-    padding: 10px 12px;
-    background: var(--steam-darker);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    color: var(--text-primary);
-    font-size: 13px;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.auth-input:focus {
-    outline: none;
-    border-color: var(--steam-light-blue);
-    box-shadow: 0 0 0 2px rgba(76, 160, 255, 0.1);
-}
-
-.auth-input::placeholder {
-    color: var(--text-secondary);
-}
-
-.form-group small {
-    display: block;
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-top: 6px;
-}
-
-.form-group small a {
-    color: var(--steam-light-blue);
-    text-decoration: none;
-}
-
-.form-group small a:hover {
-    text-decoration: underline;
-}
-
-.btn-auth {
-    width: 100%;
-    padding: 10px;
-    background: var(--steam-blue);
-    border: none;
-    border-radius: 4px;
-    color: white;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s, transform 0.1s;
-    margin-top: 10px;
-}
-
-.btn-auth:hover {
-    background: var(--steam-light-blue);
-    transform: translateY(-1px);
-}
-
-.btn-auth:active {
-    transform: translateY(0);
-}
-
-/* Profile Picture Styling */
-.profile-pic-container {
-    display: flex;
-    gap: 15px;
-    align-items: flex-start;
-    background: rgba(30, 144, 255, 0.05);
-    padding: 15px;
-    border-radius: 6px;
-    border: 1px solid rgba(30, 144, 255, 0.2);
-    margin-bottom: 12px;
-}
-
-.profile-pic-preview {
-    width: 80px;
-    height: 80px;
-    border-radius: 8px;
-    background: var(--steam-darker);
-    border: 2px solid var(--steam-blue);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 32px;
-    flex-shrink: 0;
-    overflow: hidden;
-    cursor: pointer;
-    transition: transform 0.2s, border-color 0.2s;
-}
-
-.profile-pic-preview:hover {
-    border-color: var(--steam-light-blue);
-    transform: scale(1.05);
-}
-
-.profile-pic-inputs {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.btn-upload-pic {
-    width: 100%;
-    padding: 8px 12px;
-    background: var(--steam-blue);
-    border: none;
-    border-radius: 4px;
-    color: white;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s, transform 0.1s;
-}
-
-.btn-upload-pic:hover {
-    background: var(--steam-light-blue);
-    transform: translateY(-1px);
-}
-
-.btn-upload-pic:active {
-    transform: translateY(0);
-}
-
-.btn-change-pic {
-    margin-top: 10px;
-    padding: 6px 14px;
-    background: var(--steam-blue);
-    border: none;
-    border-radius: 4px;
-    color: white;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s, transform 0.1s;
-}
-
-.btn-change-pic:hover {
-    background: var(--steam-light-blue);
-    transform: translateY(-1px);
-}
-
-.btn-change-pic:active {
-    transform: translateY(0);
-}
-
-.btn-skip {
-    width: 100%;
-    padding: 8px;
-    background: transparent;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: border-color 0.2s, color 0.2s;
-    margin-top: 10px;
-}
-
-.btn-skip:hover {
-    border-color: var(--text-secondary);
-    color: var(--text-primary);
-}
-
-.auth-toggle {
-    text-align: center;
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-top: 15px;
-}
-
-.auth-toggle a {
-    color: var(--steam-light-blue);
-    text-decoration: none;
-    cursor: pointer;
-}
-
-.auth-toggle a:hover {
-    text-decoration: underline;
-}
-
-.auth-error {
-    color: #ff6b6b;
-    font-size: 12px;
-    margin-top: 10px;
-    text-align: center;
-    min-height: 18px;
 }
 
 /* =====================
@@ -777,25 +540,51 @@ html, body {
     backdrop-filter: blur(4px);
 }
 
-.game-card-action-btn {
+.game-card-price.owned {
+    background: rgba(40, 150, 80, 0.9);
+    color: #fff;
+    border-color: rgba(40, 150, 80, 0.9);
+}
+
+.game-card-actions {
     position: absolute;
     bottom: 12px;
+    left: 12px;
     right: 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    z-index: 10;
+}
+
+.game-card-action-btn,
+.game-card-secondary-btn {
     background: var(--steam-blue);
     color: #fff;
     border: 1px solid rgba(30, 144, 255, 0.6);
-    padding: 8px 16px;
+    padding: 8px 12px;
     border-radius: 3px;
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
-    z-index: 10;
 }
 
-.game-card-action-btn:hover {
+.game-card-secondary-btn {
+    background: rgba(20, 30, 40, 0.92);
+    border-color: rgba(150, 150, 170, 0.3);
+}
+
+.game-card-action-btn:hover,
+.game-card-secondary-btn:hover {
     background: var(--steam-light-blue);
     border-color: var(--steam-light-blue);
+}
+
+.game-card-action-btn:active,
+.game-card-secondary-btn:active {
+    opacity: 0.8;
 }
 
 .game-card-action-btn:active {

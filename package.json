@@ -7,7 +7,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "build:win": "electron-builder --windows"
   },
   "keywords": [
     "launcher",
@@ -16,11 +17,7 @@
   ],
   "author": "Zetsukae",
   "license": "MIT",
-  "dependencies": {
-    "cors": "^2.8.6",
-    "express": "^4.22.1",
-    "nodemailer": "^6.10.1"
-  },
+  "dependencies": {},
   "devDependencies": {
     "electron": "^29.0.0",
     "electron-builder": "^24.6.4"
@@ -28,16 +25,6 @@
   "build": {
     "appId": "com.zetsukae.launcher",
     "productName": "Zetsukae Launcher",
-    "icon": "src/assets/icon/icon.ico",
-    "linux": {
-      "icon": "src/assets/icon/icon.png",
-      "target": [
-        "AppImage"
-      ]
-    },
-    "win": {
-      "icon": "src/assets/icon/icon.ico"
-    },
     "files": [
       "main.js",
       "preload.js",
@@ -45,6 +32,18 @@
     ],
     "directories": {
       "buildResources": "src/assets"
+    },
+    "win": {
+      "icon": "src/assets/icon/icon.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "icon": "src/assets/icon/icon.png",
+      "target": [
+        "AppImage"
+      ]
     }
   }
 }

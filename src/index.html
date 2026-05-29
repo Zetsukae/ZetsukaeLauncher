@@ -5,81 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zetsukae Launcher</title>
     <link rel="stylesheet" href="styles.css">
+    <link id="themeStylesheet" rel="stylesheet" href="portable.css">
 </head>
 <body>
-    <!-- Background Music -->
     <audio id="backgroundMusic" loop>
         <source src="assets/comeaux.mp3" type="audio/mpeg">
     </audio>
+    <audio id="swapSound" preload="auto">
+        <source src="assets/swap.mp3" type="audio/mpeg">
+    </audio>
 
-    <!-- ZetID Authentication Screen -->
-    <div id="authContainer" class="auth-container">
-        <div class="auth-modal">
-            <div class="auth-header">
-                <h1>Zetsukae Launcher</h1>
-                <p>Synchronisez vos données avec ZetID</p>
-            </div>
-
-            <!-- Login Form -->
-            <div id="loginForm" class="auth-form active">
-                <h2>Connexion</h2>
-                <div class="form-group">
-                    <label>Email ou Nom d'utilisateur</label>
-                    <input type="text" id="loginEmailInput" placeholder="Email ou username" class="auth-input">
-                </div>
-                <div class="form-group">
-                    <label>Mot de passe</label>
-                    <input type="password" id="loginPasswordInput" placeholder="Mot de passe" class="auth-input">
-                </div>
-                <button id="loginBtn" class="btn-auth">Connexion</button>
-                <p class="auth-toggle">Pas encore de compte? <a href="#" id="switchToRegister">S'inscrire</a></p>
-                <button id="skipAuthBtn" class="btn-skip">Continuer sans compte</button>
-                <div id="loginError" class="auth-error"></div>
-            </div>
-
-            <!-- Register Form -->
-            <div id="registerForm" class="auth-form">
-                <h2>Créer un compte ZetID</h2>
-                <div class="form-group">
-                    <label>Photo de Profil (optionnel)</label>
-                    <div class="profile-pic-container">
-                        <div id="profilePicPreview" class="profile-pic-preview">📷</div>
-                        <div class="profile-pic-inputs">
-                            <input type="url" id="profilePicUrl" placeholder="URL de l'image" class="auth-input" style="margin-bottom: 8px;">
-                            <button type="button" id="uploadProfilePicBtn" class="btn-upload-pic">Parcourir un fichier</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Nom d'utilisateur</label>
-                    <input type="text" id="registerUsernameInput" placeholder="Nom d'utilisateur" class="auth-input">
-                </div>
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="registerEmailInput" placeholder="Email" class="auth-input">
-                </div>
-                <div class="form-group">
-                    <label>Mot de passe</label>
-                    <input type="password" id="registerPasswordInput" placeholder="Mot de passe" class="auth-input">
-                </div>
-                <div class="form-group">
-                    <label>Confirmer le mot de passe</label>
-                    <input type="password" id="registerPasswordConfirmInput" placeholder="Confirmer le mot de passe" class="auth-input">
-                </div>
-                <div class="form-group">
-                    <label>Token GitHub Personnel (optionnel)</label>
-                    <input type="password" id="githubTokenInput" placeholder="Votre Personal Access Token GitHub" class="auth-input">
-                    <small>Pour synchroniser vos données. <a href="https://github.com/settings/tokens" target="_blank">Créer un token</a></small>
-                </div>
-                <button id="registerBtn" class="btn-auth">S'inscrire</button>
-                <p class="auth-toggle">Vous avez déjà un compte? <a href="#" id="switchToLogin">Connectez-vous</a></p>
-                <div id="registerError" class="auth-error"></div>
-            </div>
-        </div>
+    <div class="p55-bg" aria-hidden="true">
+        <img id="p55BgImage" class="p55-bg-image" alt="">
+        <div class="p55-bg-scrim"></div>
     </div>
 
     <div class="app-container">
-        <!-- Custom Title Bar -->
+        <header class="p55-top-bar">
+            <div class="p55-top-left">
+                <span class="p55-clock" id="p55Clock">--:--</span>
+            </div>
+            <div class="p55-top-right">
+                <span class="p55-brand-mark">Zetsukae</span>
+            </div>
+        </header>
         <div class="custom-titlebar">
             <div class="titlebar-left">
                 <div class="settings-menu-container">
@@ -97,7 +46,7 @@
             </div>
         </div>
 
-        <!-- Top Navigation Bar -->
+        
         <nav class="top-nav">
             <div class="nav-left">
                 <div class="logo">🎮 Zetsukae</div>
@@ -112,11 +61,12 @@
             </div>
         </nav>
 
-        <!-- Main Container -->
         <div class="main-container">
-            <!-- Store View -->
             <div id="storeView" class="view-section">
-                <!-- Featured Carousel -->
+                <div class="p55-store-app-header">
+                    <button type="button" id="storeAppBackBtn" class="p55-store-back">← <span data-i18n="consoleHome">Accueil</span></button>
+                    <h2 class="p55-store-app-title" data-i18n="consoleStoreTitle">Zetsukae Store</h2>
+                </div>
                 <section class="featured-section">
                     <div class="carousel-container">
                         <button class="carousel-btn carousel-prev">‹</button>
@@ -132,10 +82,9 @@
                     </div>
                 </section>
 
-                <!-- Featured & Recommended -->
-                <section class="section">
+                <section class="section console-store-section">
                     <div class="section-header">
-                        <h2>Recommandées</h2>
+                        <h2 data-i18n="recommended">Recommandées</h2>
                     </div>
                     <div class="games-grid" id="gamesGrid">
                         <div class="loading">
@@ -145,20 +94,29 @@
                 </section>
             </div>
 
-            <!-- Library View -->
             <div id="libraryView" class="view-section" style="display: none;">
-                <div class="library-header">
-                    <h1>Ma Bibliothèque</h1>
-                    <button id="addCustomGameBtn" class="btn-add-game">+ Ajouter un jeu</button>
-                </div>
-                <div class="games-grid" id="libraryGrid">
-                    <div class="loading">
-                        <p>Chargement de votre bibliothèque...</p>
+                <div class="library-portable-only">
+                    <div class="library-header">
+                        <h1>Ma Bibliothèque</h1>
+                        <button id="addCustomGameBtn" class="btn-add-game">+ Ajouter un jeu</button>
                     </div>
+                    <div class="games-grid" id="libraryGrid">
+                        <div class="loading">
+                            <p>Chargement de votre bibliothèque...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p55-home">
+                    <p class="p55-home-label" data-i18n="consoleLibrary">Bibliothèque</p>
+                    <div class="p55-shelf-area">
+                        <div id="consoleHomeShelf" class="p55-shelf" role="list"></div>
+                    </div>
+                    <p id="p55FocusedTitle" class="p55-focused-title"></p>
                 </div>
             </div>
 
-            <!-- Community View -->
+            
             <div id="communityView" class="view-section" style="display: none;">
                 <div class="section-header">
                     <h2>Communauté</h2>
@@ -168,31 +126,59 @@
                 </div>
             </div>
         </div>
+
+        <footer class="p55-bottom-hints">
+            <button type="button" class="p55-hint" id="p55HintMenu">
+                <span class="hint-keyboard"><kbd>Échap</kbd></span>
+                <span class="hint-gamepad"><span class="pad-badge pad-menu" aria-hidden="true">☰</span></span>
+                <span class="hint-label" data-i18n="consoleMenu">Menu</span>
+            </button>
+            <button type="button" class="p55-hint" id="p55HintDetails">
+                <span class="hint-keyboard"><kbd>I</kbd></span>
+                <span class="hint-gamepad"><span class="pad-badge pad-x" aria-hidden="true">X</span></span>
+                <span class="hint-label" data-i18n="consoleDetails">Détails</span>
+            </button>
+            <button type="button" class="p55-hint p55-hint-play" id="p55HintPlay">
+                <span class="hint-keyboard"><kbd>Entrée</kbd></span>
+                <span class="hint-gamepad"><span class="pad-badge pad-a" aria-hidden="true">A</span></span>
+                <span class="hint-label" data-i18n="consolePlay">Jouer</span>
+            </button>
+        </footer>
     </div>
 
-    <!-- App Details Modal (Steam-style) -->
+    <div id="consoleSystemMenu" class="console-system-menu" aria-hidden="true">
+        <div class="console-system-menu-backdrop"></div>
+        <nav class="console-system-menu-panel" role="menu" aria-label="Menu système">
+            <p class="console-system-menu-label">Zetsukae Launcher</p>
+            <button type="button" class="console-menu-item active" data-action="resume" role="menuitem" data-i18n="consoleMenuResume">Reprendre</button>
+            <button type="button" class="console-menu-item" data-action="settings" role="menuitem" data-i18n="consoleMenuSettings">Paramètres</button>
+            <button type="button" class="console-menu-item" data-action="exit-console" role="menuitem" data-i18n="consoleMenuExitConsole">Quitter le mode console</button>
+            <button type="button" class="console-menu-item console-menu-item-danger" data-action="quit" role="menuitem" data-i18n="consoleMenuQuit">Quitter l'application</button>
+        </nav>
+    </div>
+
     <div class="modal" id="gameModal">
         <div class="modal-overlay" id="closeModalOverlay"></div>
         <div class="modal-content-steam">
             <button class="modal-close" id="closeModalBtn">✕</button>
             
-            <!-- Hero Image -->
+            
             <div class="modal-hero">
                 <img id="modalHeroImage" src="" alt="Hero" class="hero-image">
                 <div class="hero-overlay"></div>
             </div>
             
-            <!-- Content -->
+            
             <div class="modal-scroll">
                 <div class="modal-container">
-                    <!-- Title Section -->
+                    
                     <div class="modal-title-section">
                         <h1 id="modalGameTitle"></h1>
                         <p id="modalGameVersion" class="version-badge"></p>
                         <p id="modalGamePrice" class="price-badge"></p>
                     </div>
 
-                    <!-- Details -->
+                    
                     <div class="modal-details">
                         <div class="details-left">
                             <h3>À Propos</h3>
@@ -216,7 +202,7 @@
         </div>
     </div>
 
-    <!-- Add Custom Game Modal -->
+    
     <div class="modal" id="addGameModal">
         <div class="modal-overlay" id="closeAddGameOverlay"></div>
         <div class="modal-content-add-game">
@@ -276,15 +262,15 @@
         </div>
     </div>
 
-    <!-- Offline Error Screen -->
+    
     <div id="offlineOverlay" class="offline-overlay">
         <div class="offline-content">
-            <p class="offline-text">Votre connexion internet ne semble pas fonctionner :/</p>
+            <p class="offline-text">Pas de wifi : vous êtes hors ligne.</p>
             <button id="refreshBtn" class="btn-refresh">Rafraichir</button>
         </div>
     </div>
 
-    <!-- Settings Modal -->
+    
     <div class="modal" id="settingsModal">
         <div class="modal-overlay" id="closeSettingsOverlay"></div>
         <div class="modal-content-settings">
@@ -294,14 +280,11 @@
             </div>
             
             <div class="settings-container">
-                <!-- Sidebar -->
+                
                 <div class="settings-sidebar">
                     <nav class="settings-nav">
                         <button class="settings-nav-item active" data-section="general">
                             <span>Général</span>
-                        </button>
-                        <button class="settings-nav-item" data-section="account">
-                            <span>Mon Compte</span>
                         </button>
                         <button class="settings-nav-item" data-section="customisation">
                             <span>Customisation</span>
@@ -318,9 +301,9 @@
                     </nav>
                 </div>
 
-                <!-- Content Area -->
+                
                 <div class="settings-content">
-                    <!-- General Section -->
+                    
                     <div class="settings-section active" data-section="general">
                         <h3>General Settings</h3>
                         <p>General application configuration.</p>
@@ -337,57 +320,16 @@
                         </div>
                     </div>
 
-                    <!-- Account Section -->
-                    <div class="settings-section" data-section="account">
-                        <h3>Mon Compte ZetID</h3>
-                        <div id="accountLoggedOut" class="account-section">
-                            <p>Aucun compte connecté.</p>
-                            <button id="loginFromSettingsBtn" class="btn-primary">Se connecter</button>
-                        </div>
-                        <div id="accountLoggedIn" class="account-section" style="display: none;">
-                            <div class="account-profile-pic">
-                                <div id="settingsProfilePic" class="settings-profile-pic">📷</div>
-                                <button id="changeProfilePicBtn" class="btn-change-pic">Changer</button>
-                            </div>
-                            <div class="account-info">
-                                <div class="info-item">
-                                    <span class="info-label">Nom d'utilisateur:</span>
-                                    <span id="accountUsername" class="info-value">-</span>
-                                </div>
-                                <div class="info-item">
-                                    <span class="info-label">Email:</span>
-                                    <span id="accountEmail" class="info-value info-hidden" style="cursor: pointer; user-select: none;">Cliquez pour afficher</span>
-                                </div>
-                                <div class="info-item">
-                                    <span class="info-label">ZetID:</span>
-                                    <span id="accountZetId" class="info-value info-hidden" style="cursor: pointer; user-select: none;">Cliquez pour afficher</span>
-                                </div>
-                            </div>
-                            <div class="github-token-section" style="margin-top: 25px; padding: 20px; background: rgba(28, 140, 200, 0.08); border: 1px solid rgba(76, 160, 255, 0.2); border-radius: 4px;">
-                                <h4 style="margin: 0 0 15px 0; color: var(--steam-light-blue); font-size: 14px; font-weight: 600;">Token GitHub</h4>
-                                <p style="font-size: 12px; color: var(--steam-gray); margin: 0 0 15px 0; line-height: 1.5;">Optionnel - Pour la synchronisation en ligne de vos données. <a href="https://github.com/settings/tokens" target="_blank" style="color: var(--steam-light-blue); text-decoration: none;">Créer un token</a></p>
-                                <div style="margin-bottom: 12px;">
-                                    <label style="display: block; font-size: 12px; color: var(--steam-gray); margin-bottom: 8px; font-weight: 500;">Votre Token:</label>
-                                    <input type="password" id="githubTokenInput" placeholder="ghp_..." style="width: 100%; padding: 12px; background: rgba(0,0,0,0.5); border: 1px solid rgba(76, 160, 255, 0.4); border-radius: 4px; color: var(--steam-light-blue); font-size: 14px; font-family: monospace;">
-                                </div>
-                                <div style="display: flex; gap: 10px;">
-                                    <button id="saveGithubTokenBtn" class="btn-primary" style="padding: 10px 20px; flex: 1;">Sauvegarder le token</button>
-                                </div>
-                                <div id="tokenStatus" style="font-size: 12px; margin-top: 12px; color: var(--steam-gray); line-height: 1.4;"></div>
-                            </div>
-                            <button id="syncDataBtn" class="btn-primary" style="margin-top: 15px;">Synchroniser les données</button>
-                            <button id="logoutBtn" class="btn-danger" style="margin-top: 10px;">Déconnexion</button>
-                            <button id="deleteAccountBtn" class="btn-delete-account" style="margin-top: 10px;">Supprimer le compte</button>
-                        </div>
-                    </div>
-
-                    <!-- Customisation Section -->
+                    
                     <div class="settings-section" data-section="customisation">
                         <h3>Customization</h3>
                         <p>Customize the appearance of your launcher.</p>
                         <div class="settings-option">
-                            <label>Dark Theme</label>
-                            <input type="checkbox" checked disabled>
+                            <label>Theme</label>
+                            <select id="themeSelector" style="padding: 6px 10px; background: rgba(0,0,0,0.3); border: 1px solid rgba(76, 160, 255, 0.3); border-radius: 4px; color: var(--steam-light-blue); font-size: 13px; cursor: pointer;">
+                                <option value="portable">Portable</option>
+                                <option value="console">Console</option>
+                            </select>
                         </div>
                         <div class="settings-option">
                             <label>Show Prices</label>
@@ -399,25 +341,25 @@
                         </div>
                     </div>
 
-                    <!-- Cache Section -->
+                    
                     <div class="settings-section" data-section="cache">
                         <h3>Gestion du Cache</h3>
                         <p>Vider le cache pour supprimer tous les chemins des jeux sauvegardés et les jeux personnalisés.</p>
                         <button id="clearCacheBtn" class="btn-danger">Vider le cache</button>
                     </div>
 
-                    <!-- About Section -->
+                    
                     <div class="settings-section" data-section="about">
                         <h3>À propos de Zetsukae Launcher</h3>
                         <div class="about-container">
                             <p><strong>Zetsukae Launcher</strong></p>
-                            <p class="version-text">Version abf0-pre-launch0887</p>
+                            <p class="version-text">Version abf1-launch1.0</p>
                             <p class="about-text">Un lanceur de jeux simple et efficace construit avec Electron.</p>
                             <p class="about-description">Entièrement développé par Zetsukae avec <span class="heart-pulse">❤️</span></p>
                         </div>
                     </div>
 
-                    <!-- Information Section -->
+                    
                     <div class="settings-section" data-section="info">
                         <h3>Informations Système</h3>
                         <div class="info-container">
@@ -436,8 +378,6 @@
         </div>
     </div>
 
-    <script src="auth-manager.js"></script>
-    <script src="sync-service.js"></script>
     <script src="renderer.js"></script>
 </body>
 </html>
