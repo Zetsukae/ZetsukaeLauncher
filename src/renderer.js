@@ -433,6 +433,8 @@ let backgroundMusicEnabled = true; // Background music enabled by default
 let currentUser = null; // { zetId, username, email, profilePic, githubToken, createdAt }
 let sessionToken = null;
 let steamGames = [];
+let epicGames = [];
+let xboxGames = [];
 let appTheme = 'portable';
 let consoleFocusedIndex = 0;
 let consoleShelfItems = [];
@@ -442,6 +444,12 @@ let consoleMenuIndex = 0;
 let consoleShelfReady = false;
 let lastConsoleFocusIndex = -1;
 let gamepadConnected = false;
+let modalButtonFocusIndex = -1;
+let currentModalType = null; // 'game', 'settings', 'addGame', etc.
+
+// Store navigation (horizontal lists)
+let storeCardFocusIndex = -1;
+let storeCurrentScrollContainer = null;
 
 const DEFAULT_REPO_URL = 'https://github.com/Zetsukae/streamix';
 const FOLDER_REPO_URL = 'https://github.com/Zetsukae/ZetsukaeLauncher';
@@ -521,6 +529,23 @@ async function detectSteamGames() {
     }
 }
 
+async function detectInstalledGames() {
+    try {
+        const detected = await window.electron.detectInstalledGames();
+        if (detected) {
+            steamGames = Array.isArray(detected.steam) ? detected.steam : (detected.steam || []);
+            epicGames = Array.isArray(detected.epic) ? detected.epic : (detected.epic || []);
+            xboxGames = Array.isArray(detected.xbox) ? detected.xbox : (detected.xbox || []);
+            console.log('Installed detection:', { steam: steamGames.length, epic: epicGames.length, xbox: xboxGames.length });
+        }
+        refreshConsoleHomeIfNeeded();
+    } catch (err) {
+        console.error('Error detecting installed games:', err);
+        epicGames = [];
+        xboxGames = [];
+    }
+}
+
 // ==================== EVENT LISTENERS ====================
 // Window controls
 document.getElementById('minimizeBtn').addEventListener('click', () => {
@@ -576,23 +601,31 @@ gameSearchInput.addEventListener('input', filterGames);
 // Add custom game modal
 addGameBtn.addEventListener('click', () => {
     addGameModal.classList.add('active');
+    modalButtonFocusIndex = 0;
+    currentModalType = 'addGame';
 });
 
 closeAddGameBtn.addEventListener('click', () => {
     addGameModal.classList.remove('active');
     addGameForm.reset();
+    modalButtonFocusIndex = -1;
+    currentModalType = null;
 });
 
 closeAddGameOverlay.addEventListener('click', (e) => {
     if (e.target.id === 'closeAddGameOverlay') {
         addGameModal.classList.remove('active');
         addGameForm.reset();
+        modalButtonFocusIndex = -1;
+        currentModalType = null;
     }
 });
 
 cancelAddGameBtn.addEventListener('click', () => {
     addGameModal.classList.remove('active');
     addGameForm.reset();
+    modalButtonFocusIndex = -1;
+    currentModalType = null;
 });
 
 browseBtn.addEventListener('click', async () => {
@@ -610,6 +643,8 @@ settingsBtn.addEventListener('click', () => {
 openSettingsBtn.addEventListener('click', () => {
     settingsModal.classList.add('active');
     settingsDropdown.classList.remove('active');
+    modalButtonFocusIndex = 0;
+    currentModalType = 'settings';
 });
 
 quitAppBtn.addEventListener('click', () => {
@@ -625,11 +660,15 @@ document.addEventListener('click', (e) => {
 
 closeSettingsBtn.addEventListener('click', () => {
     settingsModal.classList.remove('active');
+    modalButtonFocusIndex = -1;
+    currentModalType = null;
 });
 
 closeSettingsOverlay.addEventListener('click', (e) => {
     if (e.target.id === 'closeSettingsOverlay') {
         settingsModal.classList.remove('active');
+        modalButtonFocusIndex = -1;
+        currentModalType = null;
     }
 });
 
@@ -699,6 +738,7 @@ window.addEventListener('load', async () => {
     loadSettings(); // Load user preferences including language
     updateUILanguage(); // Apply language to UI
     await detectSteamGames();
+    await detectInstalledGames();
     refreshConsoleHomeIfNeeded();
     switchSection(isConsoleMode() ? 'library' : 'store');
     checkConnection();
@@ -904,17 +944,33 @@ window.handleConsoleTileImageError = handleConsoleTileImageError;
 function getAllLibraryGames() {
     const customGames = getCustomGames();
     const cachedGames = isOnline ? [] : getCachedGames();
-    const steamTitles = new Set(steamGames.map(game => game.title));
-    const cachedTitles = new Set(cachedGames.map(game => game.title));
-    const isOwnedLauncherGame = (game) => {
-        return !!steamGames.find(s => s.title === game.title) || !!getGamePath(game.title);
+
+    // Merge detected installed games (steam, epic, xbox) into library list
+    const merged = [];
+    const seen = new Set();
+
+    const pushUnique = (g) => {
+        if (!g || !g.title) return;
+        const key = (g.title || '').toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        merged.push(g);
     };
-    const storeGamesWithoutDuplicates = games.filter(game =>
-        isOwnedLauncherGame(game) &&
-        !steamTitles.has(game.title) &&
-        !cachedTitles.has(game.title)
-    );
-    return [...steamGames, ...storeGamesWithoutDuplicates, ...customGames, ...cachedGames];
+
+    // Prefer Steam entries first, then Epic, then Xbox
+    steamGames.forEach(pushUnique);
+    epicGames.forEach(pushUnique);
+    xboxGames.forEach(pushUnique);
+
+    // Also include any store games that are known as installed by path
+    const storeInstalled = games.filter(game => !!getGamePath(game.title));
+    storeInstalled.forEach(pushUnique);
+
+    // Add custom and cached games last
+    customGames.forEach(pushUnique);
+    cachedGames.forEach(pushUnique);
+
+    return merged;
 }
 
 function buildConsoleShelfItems() {
@@ -1057,11 +1113,72 @@ function updateConsoleBackground(item) {
     tryNext();
 }
 
+function updatePortableBackground(imageSrc) {
+    const bgImg = document.getElementById('p55BgImage');
+    if (!bgImg || isConsoleMode()) return;
+
+    if (!imageSrc) {
+        bgImg.removeAttribute('src');
+        bgImg.style.opacity = '0';
+        bgImg.style.display = 'none';
+        return;
+    }
+
+    bgImg.style.display = 'block';
+    bgImg.classList.add('is-changing');
+    
+    const img = new Image();
+    img.referrerPolicy = 'no-referrer';
+    img.onload = () => {
+        bgImg.src = imageSrc;
+        bgImg.classList.remove('is-changing');
+        bgImg.style.opacity = '1';
+    };
+    img.onerror = () => {
+        bgImg.classList.remove('is-changing');
+        bgImg.style.opacity = '0';
+    };
+    img.src = imageSrc;
+}
+
 function getConsoleFocusedItem() {
     return consoleShelfItems[consoleFocusedIndex] || null;
 }
 
+function handleGameCardClick(title) {
+    // In console mode, only allow clicks on focused cards
+    if (isConsoleMode()) {
+        const storeView = document.getElementById('storeView');
+        if (storeView && storeView.classList.contains('p55-store-active')) {
+            // In console store, only open if this is the focused card
+            if (storeCurrentScrollContainer && storeCardFocusIndex >= 0) {
+                const focusedCard = storeCurrentScrollContainer.querySelectorAll('.game-card')[storeCardFocusIndex];
+                if (focusedCard && focusedCard.querySelector('.game-card-title')?.textContent === title) {
+                    openGameModalByTitle(title);
+                }
+            }
+            return;
+        }
+    }
+    
+    // In portable mode or outside store, allow clicks freely
+    openGameModalByTitle(title);
+}
+
 function activateConsoleSelection() {
+    // Check if we're in store view
+    const storeView = document.getElementById('storeView');
+    if (storeView && storeView.classList.contains('p55-store-active') && storeCurrentScrollContainer && storeCardFocusIndex >= 0) {
+        const focusedCard = storeCurrentScrollContainer.querySelectorAll('.game-card')[storeCardFocusIndex];
+        if (focusedCard) {
+            const titleMatch = focusedCard.querySelector('.game-card-title')?.textContent;
+            if (titleMatch) {
+                openGameModalByTitle(titleMatch);
+            }
+        }
+        return;
+    }
+    
     const item = getConsoleFocusedItem();
     if (!item) return;
 
@@ -1073,6 +1190,19 @@ function activateConsoleSelection() {
 }
 
 function showConsoleDetails() {
+    // Check if we're in store view
+    const storeView = document.getElementById('storeView');
+    if (storeView && storeView.classList.contains('p55-store-active') && storeCurrentScrollContainer && storeCardFocusIndex >= 0) {
+        const focusedCard = storeCurrentScrollContainer.querySelectorAll('.game-card')[storeCardFocusIndex];
+        if (focusedCard) {
+            const titleMatch = focusedCard.querySelector('.game-card-title')?.textContent;
+            if (titleMatch) {
+                openGameModalByTitle(titleMatch);
+            }
+        }
+        return;
+    }
+    
     const item = getConsoleFocusedItem();
     if (!item) return;
 
@@ -1106,6 +1236,16 @@ function openStoreApp() {
     storeView.classList.add('p55-store-active');
     document.querySelector('.p55-bottom-hints')?.style.setProperty('display', 'none');
     displayGameCards(storeView.querySelector('#gamesGrid'), games);
+    
+    // Reset store navigation and initialize focus after a brief delay
+    storeCardFocusIndex = -1;
+    storeCurrentScrollContainer = null;
+    setTimeout(() => {
+        const grids = storeView.querySelectorAll('.games-grid');
+        if (grids.length > 0) {
+            setStoreCardFocus(0, grids[0]);
+        }
+    }, 50);
 }
 
 function closeStoreApp() {
@@ -1120,6 +1260,89 @@ function playSwapSound() {
     swapSound.play().catch(() => {});
 }
 
+function setStoreCardFocus(index, grid, direction = 'horizontal') {
+    if (!grid) return;
+    
+    const cards = Array.from(grid.querySelectorAll('.game-card'));
+    if (cards.length === 0) return;
+    
+    // Clamp index to valid range
+    const newIndex = Math.max(0, Math.min(index, cards.length - 1));
+    
+    // Remove focus from all cards
+    cards.forEach(card => card.classList.remove('focused'));
+    
+    // Add focus to new card
+    const focusedCard = cards[newIndex];
+    focusedCard.classList.add('focused');
+    
+    // Scroll into view smoothly
+    focusedCard.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+    
+    storeCardFocusIndex = newIndex;
+    storeCurrentScrollContainer = grid;
+    playSwapSound();
+}
+
+function handleStoreGamepadNavigation(dpadRight, dpadLeft, dpadDown, dpadUp, leftStickX, leftStickY) {
+    const storeView = document.getElementById('storeView');
+    if (!storeView || !storeView.classList.contains('p55-store-active')) return;
+    
+    const grids = storeView.querySelectorAll('.games-grid');
+    if (grids.length === 0) return;
+    
+    // If no grid is currently focused, focus the first one
+    if (!storeCurrentScrollContainer) {
+        storeCurrentScrollContainer = grids[0];
+        storeCardFocusIndex = 0;
+    }
+    
+    // Find current grid index
+    let currentGridIndex = Array.from(grids).indexOf(storeCurrentScrollContainer);
+    if (currentGridIndex === -1) {
+        currentGridIndex = 0;
+        storeCurrentScrollContainer = grids[0];
+    }
+    
+    // Horizontal navigation (left/right stick or d-pad)
+    if (dpadRight || leftStickX > 0.5) {
+        const cards = Array.from(storeCurrentScrollContainer.querySelectorAll('.game-card'));
+        if (cards.length > 0) {
+            const newIndex = (storeCardFocusIndex + 1) % cards.length;
+            setStoreCardFocus(newIndex, storeCurrentScrollContainer);
+        }
+        return;
+    }
+    
+    if (dpadLeft || leftStickX < -0.5) {
+        const cards = Array.from(storeCurrentScrollContainer.querySelectorAll('.game-card'));
+        if (cards.length > 0) {
+            const newIndex = storeCardFocusIndex === 0 ? cards.length - 1 : storeCardFocusIndex - 1;
+            setStoreCardFocus(newIndex, storeCurrentScrollContainer);
+        }
+        return;
+    }
+    
+    // Vertical navigation (up/down stick or d-pad)
+    if (dpadDown || leftStickY > 0.5) {
+        if (currentGridIndex < grids.length - 1) {
+            storeCurrentScrollContainer = grids[currentGridIndex + 1];
+            storeCardFocusIndex = 0;
+            setStoreCardFocus(0, storeCurrentScrollContainer);
+        }
+        return;
+    }
+    
+    if (dpadUp || leftStickY < -0.5) {
+        if (currentGridIndex > 0) {
+            storeCurrentScrollContainer = grids[currentGridIndex - 1];
+            storeCardFocusIndex = 0;
+            setStoreCardFocus(0, storeCurrentScrollContainer);
+        }
+        return;
+    }
+}
+
 function updateGamepadHints() {
     const pads = navigator.getGamepads?.() || [];
     const connected = [...pads].some(pad => pad && pad.connected);
@@ -1128,11 +1351,241 @@ function updateGamepadHints() {
     document.body.classList.toggle('gamepad-active', connected);
 }
 
+let lastGamepadInputTime = 0;
+const GAMEPAD_INPUT_DEBOUNCE = 150; // ms
+
+function getFocusableElementsInModal() {
+    // Get buttons, inputs, and other interactive elements from the active modal
+    const gameModal = document.getElementById('gameModal');
+    const settingsModal = document.getElementById('settingsModal');
+    const addGameModal = document.getElementById('addGameModal');
+
+    if (gameModal.classList.contains('active')) {
+        currentModalType = 'game';
+        // Get all visible action buttons
+        const buttons = Array.from(gameModal.querySelectorAll('.action-buttons button:not([style*="display: none"])')).concat(
+            gameModal.querySelectorAll('.modal-close')
+        );
+        return buttons;
+    } else if (settingsModal.classList.contains('active')) {
+        currentModalType = 'settings';
+        // Get all visible buttons, inputs, and selects
+        const elements = Array.from(settingsModal.querySelectorAll('button, input, select, textarea')).filter(el => {
+            return el.offsetParent !== null; // Only visible elements
+        });
+        return elements;
+    } else if (addGameModal.classList.contains('active')) {
+        currentModalType = 'addGame';
+        const elements = Array.from(addGameModal.querySelectorAll('button, input, textarea')).filter(el => {
+            return el.offsetParent !== null;
+        });
+        return elements;
+    }
+    
+    return [];
+}
+
+function handleGamepadInModal() {
+    const focusableElements = getFocusableElementsInModal();
+    if (!focusableElements.length) return;
+
+    const gamepads = navigator.getGamepads?.();
+    if (!gamepads || !gamepads.length) return;
+
+    let gamepad = null;
+    for (let i = 0; i < gamepads.length; i++) {
+        if (gamepads[i] && gamepads[i].connected) {
+            gamepad = gamepads[i];
+            break;
+        }
+    }
+
+    if (!gamepad) return;
+
+    const dpadLeft = gamepad.buttons[14]?.pressed;
+    const dpadRight = gamepad.buttons[15]?.pressed;
+    const dpadUp = gamepad.buttons[12]?.pressed;
+    const dpadDown = gamepad.buttons[13]?.pressed;
+    const buttonA = gamepad.buttons[0]?.pressed;
+    const buttonB = gamepad.buttons[1]?.pressed;
+    const leftStickX = gamepad.axes[0] || 0;
+    const leftStickY = gamepad.axes[1] || 0;
+
+    // Initialize focus if not set
+    if (modalButtonFocusIndex < 0) {
+        modalButtonFocusIndex = 0;
+    }
+
+    // Navigation
+    if (dpadRight || leftStickX > 0.5) {
+        modalButtonFocusIndex = (modalButtonFocusIndex + 1) % focusableElements.length;
+        updateModalFocus(focusableElements);
+    } else if (dpadLeft || leftStickX < -0.5) {
+        modalButtonFocusIndex = (modalButtonFocusIndex - 1 + focusableElements.length) % focusableElements.length;
+        updateModalFocus(focusableElements);
+    } else if (dpadDown || leftStickY > 0.5) {
+        modalButtonFocusIndex = (modalButtonFocusIndex + 1) % focusableElements.length;
+        updateModalFocus(focusableElements);
+    } else if (dpadUp || leftStickY < -0.5) {
+        modalButtonFocusIndex = (modalButtonFocusIndex - 1 + focusableElements.length) % focusableElements.length;
+        updateModalFocus(focusableElements);
+    }
+
+    // Activate
+    if (buttonA) {
+        const element = focusableElements[modalButtonFocusIndex];
+        if (element.tagName === 'BUTTON') {
+            element.click();
+        } else if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT') {
+            element.focus();
+        }
+    }
+
+    // Close modal with B button
+    if (buttonB) {
+        if (currentModalType === 'game' && document.getElementById('gameModal').classList.contains('active')) {
+            closeModal();
+        } else if (currentModalType === 'settings' && document.getElementById('settingsModal').classList.contains('active')) {
+            document.getElementById('closeSettingsBtn').click();
+        } else if (currentModalType === 'addGame' && document.getElementById('addGameModal').classList.contains('active')) {
+            document.getElementById('closeAddGameBtn').click();
+        }
+    }
+}
+
+function updateModalFocus(focusableElements) {
+    focusableElements.forEach((el, index) => {
+        if (index === modalButtonFocusIndex) {
+            el.classList.add('gamepad-focused');
+            el.style.outline = '3px solid #66c0f4';
+            el.style.outlineOffset = '2px';
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+            el.classList.remove('gamepad-focused');
+            el.style.outline = '';
+        }
+    });
+}
+
+function openGameModalHandler() {
+    modalButtonFocusIndex = 0;
+    currentModalType = 'game';
+}
+
+function closeGameModalHandler() {
+    modalButtonFocusIndex = -1;
+    currentModalType = null;
+}
+
+function handleGamepadInput() {
+    try {
+        if (!isConsoleMode()) return;
+        
+        // Handle gamepad input in modals first
+        if (isConsoleOverlayOpen()) {
+            handleGamepadInModal();
+            return;
+        }
+        
+        const now = Date.now();
+        if (now - lastGamepadInputTime < GAMEPAD_INPUT_DEBOUNCE) return;
+        
+        const gamepads = navigator.getGamepads?.();
+        if (!gamepads || !gamepads.length) return;
+        
+        let gamepad = null;
+        for (let i = 0; i < gamepads.length; i++) {
+            if (gamepads[i] && gamepads[i].connected) {
+                gamepad = gamepads[i];
+                break;
+            }
+        }
+        
+        if (!gamepad) return;
+        
+        const leftStickX = gamepad.axes[0] || 0;
+        const leftStickY = gamepad.axes[1] || 0;
+        const dpadLeft = gamepad.buttons[14]?.pressed;
+        const dpadRight = gamepad.buttons[15]?.pressed;
+        const dpadUp = gamepad.buttons[12]?.pressed;
+        const dpadDown = gamepad.buttons[13]?.pressed;
+        const buttonA = gamepad.buttons[0]?.pressed;
+        const buttonB = gamepad.buttons[1]?.pressed;
+        const buttonX = gamepad.buttons[2]?.pressed;
+        const buttonY = gamepad.buttons[3]?.pressed;
+        const buttonStart = gamepad.buttons[9]?.pressed; // Option/Menu/Start button
+        
+        if (buttonY || buttonStart) {
+            if (consoleMenuOpen) {
+                closeConsoleSystemMenu();
+            } else if (!isConsoleOverlayOpen()) {
+                openConsoleSystemMenu();
+            }
+            lastGamepadInputTime = now;
+            return;
+        }
+        
+        // Close store with B button
+        const storeView = document.getElementById('storeView');
+        if (buttonB && storeView && storeView.classList.contains('p55-store-active')) {
+            closeStoreApp();
+            lastGamepadInputTime = now;
+            return;
+        }
+        
+        if (buttonA && !consoleMenuOpen && !isConsoleOverlayOpen()) {
+            activateConsoleSelection();
+            lastGamepadInputTime = now;
+            return;
+        }
+        
+        if (buttonX && !consoleMenuOpen && !isConsoleOverlayOpen()) {
+            showConsoleDetails();
+            lastGamepadInputTime = now;
+            return;
+        }
+        
+        if (consoleMenuOpen) {
+            if (dpadDown || leftStickY > 0.5) {
+                setConsoleMenuIndex(consoleMenuIndex + 1);
+                lastGamepadInputTime = now;
+            } else if (dpadUp || leftStickY < -0.5) {
+                setConsoleMenuIndex(consoleMenuIndex - 1);
+                lastGamepadInputTime = now;
+            } else if (buttonA) {
+                activateConsoleMenuItem();
+                lastGamepadInputTime = now;
+            }
+        } else if (!isConsoleOverlayOpen()) {
+            // Check if store is active
+            const storeView = document.getElementById('storeView');
+            if (storeView && storeView.classList.contains('p55-store-active')) {
+                handleStoreGamepadNavigation(dpadRight, dpadLeft, dpadDown, dpadUp, leftStickX, leftStickY);
+                lastGamepadInputTime = now;
+            } else {
+                // Library/Home navigation
+                if (dpadRight || leftStickX > 0.5) {
+                    setConsoleFocus(consoleFocusedIndex + 1);
+                    lastGamepadInputTime = now;
+                } else if (dpadLeft || leftStickX < -0.5) {
+                    setConsoleFocus(consoleFocusedIndex - 1);
+                    lastGamepadInputTime = now;
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Gamepad input error:', err);
+    }
+}
+
 function initGamepadDetection() {
     updateGamepadHints();
     window.addEventListener('gamepadconnected', updateGamepadHints);
     window.addEventListener('gamepaddisconnected', updateGamepadHints);
     setInterval(updateGamepadHints, 2000);
+    
+    // Poll gamepad input more frequently for responsiveness
+    setInterval(handleGamepadInput, 50);
 }
 
 function updateConsoleUI() {
@@ -1201,6 +1654,8 @@ function activateConsoleMenuItem() {
     if (action === 'resume') return;
     if (action === 'settings') {
         settingsModal.classList.add('active');
+        modalButtonFocusIndex = 0;
+        currentModalType = 'settings';
         return;
     }
     if (action === 'exit-console') {
@@ -1240,6 +1695,12 @@ function initConsoleControls() {
                 e.preventDefault();
                 return;
             }
+            const storeView = document.getElementById('storeView');
+            if (storeView && storeView.classList.contains('p55-store-active')) {
+                closeStoreApp();
+                e.preventDefault();
+                return;
+            }
             if (!isConsoleOverlayOpen()) {
                 openConsoleSystemMenu();
                 e.preventDefault();
@@ -1261,7 +1722,52 @@ function initConsoleControls() {
             return;
         }
 
-        if (storeAppOpen || isConsoleOverlayOpen()) return;
+        // Handle store navigation with keyboard
+        const storeView = document.getElementById('storeView');
+        if (storeView && storeView.classList.contains('p55-store-active')) {
+            if (e.key === 'ArrowRight') {
+                const cards = storeCurrentScrollContainer?.querySelectorAll('.game-card');
+                if (cards && cards.length > 0) {
+                    const newIndex = (storeCardFocusIndex + 1) % cards.length;
+                    setStoreCardFocus(newIndex, storeCurrentScrollContainer);
+                }
+                e.preventDefault();
+            } else if (e.key === 'ArrowLeft') {
+                const cards = storeCurrentScrollContainer?.querySelectorAll('.game-card');
+                if (cards && cards.length > 0) {
+                    const newIndex = storeCardFocusIndex === 0 ? cards.length - 1 : storeCardFocusIndex - 1;
+                    setStoreCardFocus(newIndex, storeCurrentScrollContainer);
+                }
+                e.preventDefault();
+            } else if (e.key === 'ArrowDown') {
+                const grids = storeView.querySelectorAll('.games-grid');
+                let currentGridIndex = Array.from(grids).indexOf(storeCurrentScrollContainer);
+                if (currentGridIndex < grids.length - 1) {
+                    storeCurrentScrollContainer = grids[currentGridIndex + 1];
+                    storeCardFocusIndex = 0;
+                    setStoreCardFocus(0, storeCurrentScrollContainer);
+                }
+                e.preventDefault();
+            } else if (e.key === 'ArrowUp') {
+                const grids = storeView.querySelectorAll('.games-grid');
+                let currentGridIndex = Array.from(grids).indexOf(storeCurrentScrollContainer);
+                if (currentGridIndex > 0) {
+                    storeCurrentScrollContainer = grids[currentGridIndex - 1];
+                    storeCardFocusIndex = 0;
+                    setStoreCardFocus(0, storeCurrentScrollContainer);
+                }
+                e.preventDefault();
+            } else if (e.key === 'Enter') {
+                activateConsoleSelection();
+                e.preventDefault();
+            } else if (e.key === 'i' || e.key === 'I') {
+                showConsoleDetails();
+                e.preventDefault();
+            }
+            return;
+        }
+
+        if (isConsoleOverlayOpen()) return;
 
         if (e.key === 'ArrowRight') {
             setConsoleFocus(consoleFocusedIndex + 1);
@@ -2112,6 +2618,8 @@ function displayGameCards(container, gamesToShow) {
     container.innerHTML = gamesToShow.map((game, index) => {
         const safeTitle = escapeForOnclick(game.title || '');
         const steamMatch = steamGames.find(s => s.title === game.title);
+        const epicMatch = epicGames.find(s => s.title === game.title);
+        const xboxMatch = xboxGames.find(s => s.title === game.title);
         const hasLocalPath = !!getGamePath(game.title);
         const isOwnedFromSteam = container.id === 'gamesGrid' && !!steamMatch;
         const isOwnedByPath = container.id === 'gamesGrid' && hasLocalPath;
@@ -2143,10 +2651,23 @@ function displayGameCards(container, gamesToShow) {
             ? t('owned')
             : (showPrices && game.price ? formatPrice(game.price) : '');
         const priceHTML = priceText ? `<div class="game-card-price${(isOwnedFromSteam || isOwnedByPath) ? ' owned' : ''}">${priceText}</div>` : '';
-        
+
+        // Determine source badge priority: keep explicit source, otherwise prefer steam > epic > xbox
+        const chosenSource = displayGame.source || (steamMatch ? 'steam' : epicMatch ? 'epic' : xboxMatch ? 'xbox' : null);
+        const sourceBadge = chosenSource ? `<div class="game-card-source">${chosenSource.toUpperCase()}</div>` : '';
+
+        // Show hero background only if we have a bg_icon (many games don't)
+        const coverUrl = displayGame.bg_icon || getConsoleGameCover(displayGame) || displayGame.icon || '';
+        const safeCoverUrl = coverUrl ? coverUrl.replace(/'/g, "\\'") : '';
+        const backgroundStyle = safeCoverUrl ? `background-image: url('${safeCoverUrl}');` : '';
+
+        const coverHtml = (displayGame.bg_icon || getConsoleGameCover(displayGame))
+            ? `<div class="game-card-hero" style="${backgroundStyle}"><img src="${displayGame.icon || displayGame.bg_icon || ''}" alt="${game.title}" class="game-card-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22240%22 height=%22180%22%3E%3Crect fill=%22%232a2d30%22 width=%22240%22 height=%22180%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%238b959e%22 font-size=%2211%22%3ENo image%3C/text%3E%3C/svg%3E'">${sourceBadge}</div>`
+            : `<div style="position:relative;"><img src="${displayGame.icon || ''}" alt="${game.title}" class="game-card-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22240%22 height=%22180%22%3E%3Crect fill=%22%232a2d30%22 width=%22240%22 height=%22180%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%238b959e%22 font-size=%2211%22%3ENo image%3C/text%3E%3C/svg%3E'">${sourceBadge}</div>`;
+
         return `
-        <div class="game-card" onclick="openGameModalByTitle('${safeTitle}')">
-            <img src="${displayGame.icon || displayGame.bg_icon || ''}" alt="${game.title}" class="game-card-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22240%22 height=%22180%22%3E%3Crect fill=%22%232a2d30%22 width=%22240%22 height=%22180%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%238b959e%22 font-size=%2211%22%3ENo image%3C/text%3E%3C/svg%3E'">
+        <div class="game-card" onclick="handleGameCardClick('${safeTitle}')">
+            ${coverHtml}
             ${priceHTML}
             <div class="game-card-actions">
                 <button class="game-card-action-btn" onclick="event.stopPropagation(); ${buttonAction}">${buttonText}</button>
@@ -2344,6 +2865,9 @@ function openGameModal(gameIndex) {
     document.getElementById('modalHeroImage').src = game.bg_icon || game.icon;
     document.getElementById('modalScreenshot').src = game.icon;
     
+    // Show background image in portable mode
+    updatePortableBackground(game.bg_icon || game.icon);
+    
     // Check if game is installed
     const gamePath = game.exePath || getGamePath(game.title);
     downloadBtn.style.display = gamePath ? 'none' : 'block';
@@ -2354,6 +2878,8 @@ function openGameModal(gameIndex) {
     
     // Show modal
     gameModal.classList.add('active');
+    document.body.classList.add('gameModal-active');
+    openGameModalHandler();
 }
 
 // Open game modal by title (for custom, store, cached, and Steam games)
@@ -2387,6 +2913,9 @@ function openGameModalByTitle(gameTitle) {
     document.getElementById('modalHeroImage').src = game.bg_icon || game.icon || '';
     document.getElementById('modalScreenshot').src = game.icon || '';
     
+    // Show background image in portable mode
+    updatePortableBackground(game.bg_icon || game.icon);
+    
     const gamePath = game.exePath || getGamePath(game.title);
     const hasSteamLaunch = !!game.steamLaunchUrl;
     const hasSteamPage = !!game.steamPageUrl;
@@ -2410,11 +2939,17 @@ function openGameModalByTitle(gameTitle) {
     
     // Show modal
     gameModal.classList.add('active');
+    document.body.classList.add('gameModal-active');
+    openGameModalHandler();
 }
 
 function closeModal() {
     gameModal.classList.remove('active');
+    document.body.classList.remove('gameModal-active');
     currentSelectedGame = null;
+    // Hide background image in portable mode
+    updatePortableBackground(null);
+    closeGameModalHandler();
 }
 
 // Download button (select installation path)

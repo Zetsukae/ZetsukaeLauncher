@@ -167,6 +167,7 @@ function detectSteamInstalledGames() {
   return steamGames;
 }
 
+
 let mainWindow;
 let windowBoundsBeforeFullscreen = null;
 

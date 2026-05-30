@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electron', {
   selectPath: (gameName) => ipcRenderer.invoke('select-path', gameName),
   openUrl: (url) => ipcRenderer.invoke('open-url', url),
   detectSteamGames: () => ipcRenderer.invoke('detect-steam-games'),
+  detectInstalledGames: () => ipcRenderer.invoke('detect-installed-games'),
   windowMinimize: () => ipcRenderer.invoke('window-minimize'),
   windowMaximize: () => ipcRenderer.invoke('window-maximize'),
   windowClose: () => ipcRenderer.invoke('window-close'),
