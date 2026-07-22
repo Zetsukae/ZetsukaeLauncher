@@ -1,383 +1,154 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zetsukae Launcher</title>
-    <link rel="stylesheet" href="styles.css">
-    <link id="themeStylesheet" rel="stylesheet" href="portable.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="referrer" content="no-referrer" />
+  <title>Zetsukae Launcher</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <audio id="backgroundMusic" loop>
-        <source src="assets/comeaux.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="swapSound" preload="auto">
-        <source src="assets/swap.mp3" type="audio/mpeg">
-    </audio>
-
-    <div class="p55-bg" aria-hidden="true">
-        <img id="p55BgImage" class="p55-bg-image" alt="">
-        <div class="p55-bg-scrim"></div>
-    </div>
-
-    <div class="app-container">
-        <header class="p55-top-bar">
-            <div class="p55-top-left">
-                <span class="p55-clock" id="p55Clock">--:--</span>
-            </div>
-            <div class="p55-top-right">
-                <span class="p55-brand-mark">Zetsukae</span>
-            </div>
-        </header>
-        <div class="custom-titlebar">
-            <div class="titlebar-left">
-                <div class="settings-menu-container">
-                    <button id="settingsBtn" class="settings-btn" title="Paramètres">☰</button>
-                    <div id="settingsDropdown" class="settings-dropdown">
-                        <button id="openSettingsBtn" class="dropdown-item">Paramètres</button>
-                        <button id="quitAppBtn" class="dropdown-item quit">Forcer à quitter</button>
-                    </div>
-                </div>
-            </div>
-            <div class="titlebar-controls">
-                <button class="titlebar-btn titlebar-minimize" id="minimizeBtn">−</button>
-                <button class="titlebar-btn titlebar-maximize" id="maximizeBtn">□</button>
-                <button class="titlebar-btn titlebar-close" id="closeBtn">✕</button>
-            </div>
+  <div class="shell">
+    <header class="topbar" data-tauri-drag-region>
+      <div class="title-block">
+        <div class="logo-ring"></div>
+        <div>
+          <div class="title">$username-placeholder</div>
         </div>
+      </div>
 
-        
-        <nav class="top-nav">
-            <div class="nav-left">
-                <div class="logo">🎮 Zetsukae</div>
-                <div class="nav-links">
-                    <a href="#" class="nav-link active" data-section="store">MAGASIN</a>
-                    <a href="#" class="nav-link" data-section="library">BIBLIOTHÈQUE</a>
-                    <a href="#" class="nav-link" data-section="community">COMMUNAUTÉ</a>
-                </div>
-            </div>
-            <div class="nav-right">
-                <input type="text" id="gameSearchInput" class="search-bar" placeholder="Chercher dans le magasin...">
-            </div>
-        </nav>
+      <div class="window-controls" aria-label="Window controls">
+        <button class="window-btn minimize" id="minimizeBtn" type="button" aria-label="Minimize">—</button>
+        <button class="window-btn maximize" id="maximizeBtn" type="button" aria-label="Maximize">▢</button>
+        <button class="window-btn close" id="closeBtn" type="button" aria-label="Close">✕</button>
+      </div>
+    </header>
 
-        <div class="main-container">
-            <div id="storeView" class="view-section">
-                <div class="p55-store-app-header">
-                    <button type="button" id="storeAppBackBtn" class="p55-store-back">← <span data-i18n="consoleHome">Accueil</span></button>
-                    <h2 class="p55-store-app-title" data-i18n="consoleStoreTitle">Zetsukae Store</h2>
-                </div>
-                <section class="featured-section">
-                    <div class="carousel-container">
-                        <button class="carousel-btn carousel-prev">‹</button>
-                        <div class="carousel-main">
-                            <img id="carouselImage" src="" alt="Featured" class="carousel-image">
-                            <div class="carousel-info">
-                                <h2 id="carouselTitle"></h2>
-                                <p id="carouselDesc"></p>
-                                <button id="carouselActionBtn" class="btn-carousel">En Savoir Plus</button>
-                            </div>
-                        </div>
-                        <button class="carousel-btn carousel-next">›</button>
-                    </div>
-                </section>
-
-                <section class="section console-store-section">
-                    <div class="section-header">
-                        <h2 data-i18n="recommended">Recommandées</h2>
-                    </div>
-                    <div class="games-grid" id="gamesGrid">
-                        <div class="loading">
-                            <p>Chargement des applications...</p>
-                        </div>
-                    </div>
-                </section>
-            </div>
-
-            <div id="libraryView" class="view-section" style="display: none;">
-                <div class="library-portable-only">
-                    <div class="library-header">
-                        <h1>Ma Bibliothèque</h1>
-                        <button id="addCustomGameBtn" class="btn-add-game">+ Ajouter un jeu</button>
-                    </div>
-                    <div class="games-grid" id="libraryGrid">
-                        <div class="loading">
-                            <p>Chargement de votre bibliothèque...</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="p55-home">
-                    <p class="p55-home-label" data-i18n="consoleLibrary">Bibliothèque</p>
-                    <div class="p55-shelf-area">
-                        <div id="consoleHomeShelf" class="p55-shelf" role="list"></div>
-                    </div>
-                    <p id="p55FocusedTitle" class="p55-focused-title"></p>
-                </div>
-            </div>
-
-            
-            <div id="communityView" class="view-section" style="display: none;">
-                <div class="section-header">
-                    <h2>Communauté</h2>
-                </div>
-                <div class="loading" style="height: 400px;">
-                    <p>Section communauté bientôt disponible...</p>
-                </div>
-            </div>
+    <main class="grid-shell">
+      <section class="content-page active" data-page="home">
+        <div class="grid" id="gameGrid"></div>
+      </section>
+      <section class="content-page" data-page="me">
+        <div class="saved-games-section" id="savedGamesSection">
+          <div class="page-title">My games</div>
+          <div class="page-message" id="savedGamesMessage">No saved games yet.</div>
+          <div class="grid" id="savedGamesGrid"></div>
         </div>
+        <div class="page-title">Steam games</div>
+        <div class="page-message" id="steamFallbackMessage">Detecting Steam games...</div>
+        <div class="grid" id="steamGrid"></div>
+      </section>
+      <section class="content-page" data-page="community">
+        <div class="page-message">Coming soon</div>
+      </section>
+      <section class="content-page" data-page="messages">
+        <div class="page-message">Coming soon</div>
+      </section>
+      <section class="content-page" data-page="news">
+        <div class="page-message">Coming soon</div>
+      </section>
+    </main>
 
-        <footer class="p55-bottom-hints">
-            <button type="button" class="p55-hint" id="p55HintMenu">
-                <span class="hint-keyboard"><kbd>Échap</kbd></span>
-                <span class="hint-gamepad"><span class="pad-badge pad-menu" aria-hidden="true">☰</span></span>
-                <span class="hint-label" data-i18n="consoleMenu">Menu</span>
-            </button>
-            <button type="button" class="p55-hint" id="p55HintDetails">
-                <span class="hint-keyboard"><kbd>I</kbd></span>
-                <span class="hint-gamepad"><span class="pad-badge pad-x" aria-hidden="true">X</span></span>
-                <span class="hint-label" data-i18n="consoleDetails">Détails</span>
-            </button>
-            <button type="button" class="p55-hint p55-hint-play" id="p55HintPlay">
-                <span class="hint-keyboard"><kbd>Entrée</kbd></span>
-                <span class="hint-gamepad"><span class="pad-badge pad-a" aria-hidden="true">A</span></span>
-                <span class="hint-label" data-i18n="consolePlay">Jouer</span>
-            </button>
-        </footer>
-    </div>
-
-    <div id="consoleSystemMenu" class="console-system-menu" aria-hidden="true">
-        <div class="console-system-menu-backdrop"></div>
-        <nav class="console-system-menu-panel" role="menu" aria-label="Menu système">
-            <p class="console-system-menu-label">Zetsukae Launcher</p>
-            <button type="button" class="console-menu-item active" data-action="resume" role="menuitem" data-i18n="consoleMenuResume">Reprendre</button>
-            <button type="button" class="console-menu-item" data-action="settings" role="menuitem" data-i18n="consoleMenuSettings">Paramètres</button>
-            <button type="button" class="console-menu-item" data-action="exit-console" role="menuitem" data-i18n="consoleMenuExitConsole">Quitter le mode console</button>
-            <button type="button" class="console-menu-item console-menu-item-danger" data-action="quit" role="menuitem" data-i18n="consoleMenuQuit">Quitter l'application</button>
-        </nav>
-    </div>
-
-    <div class="modal" id="gameModal">
-        <div class="modal-overlay" id="closeModalOverlay"></div>
-        <div class="modal-content-steam">
-            <button class="modal-close" id="closeModalBtn">✕</button>
-            
-            
-            <div class="modal-hero">
-                <img id="modalHeroImage" src="" alt="Hero" class="hero-image">
-                <div class="hero-overlay"></div>
-            </div>
-            
-            
-            <div class="modal-scroll">
-                <div class="modal-container">
-                    
-                    <div class="modal-title-section">
-                        <h1 id="modalGameTitle"></h1>
-                        <p id="modalGameVersion" class="version-badge"></p>
-                        <p id="modalGamePrice" class="price-badge"></p>
-                    </div>
-
-                    
-                    <div class="modal-details">
-                        <div class="details-left">
-                            <h3>À Propos</h3>
-                            <p id="modalGameDescription" class="description-text"></p>
-
-                            <div class="action-buttons">
-                                <button id="downloadBtn" class="btn-steam btn-primary">♦ Spécifier l'emplacement</button>
-                                <button id="launchBtn" class="btn-steam btn-success" style="display: none;">▶ LANCER</button>
-                                <button id="changePathBtn" class="btn-steam btn-secondary" style="display: none;">Changer l'emplacement</button>
-                                <button id="websiteBtn" class="btn-steam btn-website" style="display: none;">🌐 Site Web</button>
-                                <button id="deleteBtn" class="btn-steam btn-danger" style="display: none;">Supprimer</button>
-                            </div>
-                        </div>
-
-                        <div class="details-right">
-                            <img id="modalScreenshot" src="" alt="Screenshot" class="screenshot-image">
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <div class="game-modal hidden" id="gameModal" aria-hidden="true">
+      <div class="game-modal-backdrop" id="gameModalBackdrop"></div>
+      <div class="game-modal-panel">
+        <button class="modal-close" id="gameModalClose" type="button" aria-label="Close details">✕</button>
+        <div class="game-modal-hero" id="gameModalHero"></div>
+        <div class="game-modal-content">
+          <h2 class="game-modal-title" id="gameModalTitle">Game details</h2>
+          <p class="game-modal-price" id="gameModalPrice"></p>
+          <div class="game-modal-row">
+            <button class="btn secondary" id="chooseLocationButton" type="button">Choose path</button>
+            <span class="game-modal-location" id="chosenLocationText">No path selected</span>
+          </div>
+          <div class="game-modal-row">
+            <span class="game-modal-label">Website:</span>
+            <a class="game-modal-link" id="gameWebsiteLink" href="#" target="_blank" rel="noreferrer noopener">No website</a>
+          </div>
+          <div class="game-modal-actions">
+            <button class="btn primary" id="launchGameButton" type="button" disabled>Launch</button>
+          </div>
         </div>
+      </div>
     </div>
 
-    
-    <div class="modal" id="addGameModal">
-        <div class="modal-overlay" id="closeAddGameOverlay"></div>
-        <div class="modal-content-add-game">
-            <button class="modal-close" id="closeAddGameBtn">✕</button>
-            <h2>Ajouter un Jeu Personnalisé</h2>
-            
-            <form id="addGameForm" class="add-game-form">
-                <div class="form-group">
-                    <label for="gameName">Nom du jeu:</label>
-                    <input type="text" id="gameName" required>
+    <div class="settings-modal hidden" id="settingsModal" aria-hidden="true">
+      <div class="settings-modal-backdrop" id="settingsModalBackdrop"></div>
+      <div class="settings-modal-panel">
+        <button class="modal-close" id="settingsModalClose" type="button" aria-label="Close settings">✕</button>
+        <div class="settings-modal-content">
+          <h2 class="settings-modal-title">Settings</h2>
+          <div class="settings-layout">
+            <aside class="settings-sidebar">
+              <button class="settings-sidebar-item active" type="button" data-settings-section="general">General</button>
+              <button class="settings-sidebar-item" type="button" data-settings-section="steam">Steam</button>
+              <button class="settings-sidebar-item" type="button" data-settings-section="appearance">Appearance</button>
+            </aside>
+            <div class="settings-panel">
+              <section class="settings-section active" data-settings-section="general">
+                <div class="settings-row">
+                  <button class="btn secondary" id="clearSavedPathsButton" type="button">Clear saved game paths</button>
+                  <p class="settings-description">Remove all locally saved game file locations.</p>
                 </div>
-
-                <div class="form-group">
-                    <label for="gameVersion">Version:</label>
-                    <input type="text" id="gameVersion" value="1.0.0">
+              </section>
+              <section class="settings-section" data-settings-section="steam">
+                <div class="settings-row">
+                  <label class="settings-control-label">
+                    <input id="autoDetectSteamToggle" type="checkbox" />
+                    Auto-detect Steam games
+                  </label>
+                  <p class="settings-description">Automatically detect installed Steam games on startup.</p>
                 </div>
-
-                <div class="form-group">
-                    <label for="gameDescription">Description:</label>
-                    <textarea id="gameDescription" rows="3"></textarea>
+                <div class="settings-row">
+                  <button class="btn secondary" id="clearSteamCacheButton" type="button">Clear Steam cache</button>
+                  <p class="settings-description">Force Steam game re-detection on next refresh.</p>
                 </div>
-
-                <div class="form-group">
-                    <label for="gameIcon">Icon URL:</label>
-                    <div class="path-input-group">
-                        <input type="url" id="gameIcon" placeholder="https://...">
-                        <button type="button" id="browseIconBtn" class="btn-browse">Fichier</button>
-                    </div>
+                <div class="settings-row">
+                  <button class="btn primary" id="reloadSteamButton" type="button">Refresh Steam games</button>
                 </div>
-
-                <div class="form-group">
-                    <label for="gameBgIcon">Image de couverture URL:</label>
-                    <div class="path-input-group">
-                        <input type="url" id="gameBgIcon" placeholder="https://...">
-                        <button type="button" id="browseBgIconBtn" class="btn-browse">Fichier</button>
-                    </div>
+              </section>
+              <section class="settings-section" data-settings-section="appearance">
+                <div class="settings-row">
+                  <label class="settings-control-label" for="backgroundStyleSelect">App background</label>
+                  <select id="backgroundStyleSelect" class="settings-select">
+                    <option value="white">White</option>
+                    <option value="gradient">Blue Gradient</option>
+                    <option value="night">Night</option>
+                    <option value="custom">Custom image</option>
+                  </select>
+                  <p class="settings-description">Choose an app background style or use your own image.</p>
                 </div>
-
-                <div class="form-group">
-                    <label for="gameWebsite">Site web (optionnel):</label>
-                    <input type="url" id="gameWebsite" placeholder="https://...">
+                <div class="settings-row">
+                  <label class="settings-control-label" for="backgroundImageInput">Custom background image</label>
+                  <input id="backgroundImageInput" class="settings-select" type="file" accept="image/*" />
+                  <p class="settings-description">Pick an image file to use as the app background when Custom image is selected.</p>
                 </div>
-
-                <div class="form-group">
-                    <label for="gameExePath">Chemin de l'exécutable:</label>
-                    <div class="path-input-group">
-                        <input type="text" id="gameExePath" readonly>
-                        <button type="button" id="browseBtn" class="btn-browse">Parcourir</button>
-                    </div>
+                <div class="settings-row">
+                  <label class="settings-control-label">
+                    <input id="backgroundSoundToggle" type="checkbox" />
+                    Enable background sound
+                  </label>
+                  <p class="settings-description">Play the OG song on loop when enabled.</p>
                 </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn-submit">Ajouter le jeu</button>
-                    <button type="button" id="cancelAddGameBtn" class="btn-cancel">Annuler</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    
-    <div id="offlineOverlay" class="offline-overlay">
-        <div class="offline-content">
-            <p class="offline-text">Pas de wifi : vous êtes hors ligne.</p>
-            <button id="refreshBtn" class="btn-refresh">Rafraichir</button>
-        </div>
-    </div>
-
-    
-    <div class="modal" id="settingsModal">
-        <div class="modal-overlay" id="closeSettingsOverlay"></div>
-        <div class="modal-content-settings">
-            <div class="settings-header">
-                <h2>Paramètres</h2>
-                <button class="modal-close" id="closeSettingsBtn">✕</button>
+              </section>
             </div>
-            
-            <div class="settings-container">
-                
-                <div class="settings-sidebar">
-                    <nav class="settings-nav">
-                        <button class="settings-nav-item active" data-section="general">
-                            <span>Général</span>
-                        </button>
-                        <button class="settings-nav-item" data-section="customisation">
-                            <span>Customisation</span>
-                        </button>
-                        <button class="settings-nav-item" data-section="cache">
-                            <span>Cache</span>
-                        </button>
-                        <button class="settings-nav-item" data-section="about">
-                            <span>À propos</span>
-                        </button>
-                        <button class="settings-nav-item" data-section="info">
-                            <span>Informations</span>
-                        </button>
-                    </nav>
-                </div>
-
-                
-                <div class="settings-content">
-                    
-                    <div class="settings-section active" data-section="general">
-                        <h3>General Settings</h3>
-                        <p>General application configuration.</p>
-                        <div class="settings-option">
-                            <label>Client Language</label>
-                            <select id="languageSelector" style="padding: 6px 10px; background: rgba(0,0,0,0.3); border: 1px solid rgba(76, 160, 255, 0.3); border-radius: 4px; color: var(--steam-light-blue); font-size: 13px; cursor: pointer;">
-                                <option value="en">English</option>
-                                <option value="fr">Francais</option>
-                            </select>
-                        </div>
-                        <div class="settings-option">
-                            <label>Always Fullscreen</label>
-                            <input type="checkbox" id="fullscreenCheckbox">
-                        </div>
-                    </div>
-
-                    
-                    <div class="settings-section" data-section="customisation">
-                        <h3>Customization</h3>
-                        <p>Customize the appearance of your launcher.</p>
-                        <div class="settings-option">
-                            <label>Theme</label>
-                            <select id="themeSelector" style="padding: 6px 10px; background: rgba(0,0,0,0.3); border: 1px solid rgba(76, 160, 255, 0.3); border-radius: 4px; color: var(--steam-light-blue); font-size: 13px; cursor: pointer;">
-                                <option value="portable">Portable</option>
-                                <option value="console">Console</option>
-                            </select>
-                        </div>
-                        <div class="settings-option">
-                            <label>Show Prices</label>
-                            <input type="checkbox" id="showPricesCheckbox" checked>
-                        </div>
-                        <div class="settings-option">
-                            <label>Background Music</label>
-                            <input type="checkbox" id="backgroundMusicCheckbox" checked>
-                        </div>
-                    </div>
-
-                    
-                    <div class="settings-section" data-section="cache">
-                        <h3>Gestion du Cache</h3>
-                        <p>Vider le cache pour supprimer tous les chemins des jeux sauvegardés et les jeux personnalisés.</p>
-                        <button id="clearCacheBtn" class="btn-danger">Vider le cache</button>
-                    </div>
-
-                    
-                    <div class="settings-section" data-section="about">
-                        <h3>À propos de Zetsukae Launcher</h3>
-                        <div class="about-container">
-                            <p><strong>Zetsukae Launcher</strong></p>
-                            <p class="version-text">Version abf1-launch1.0</p>
-                            <p class="about-text">Un lanceur de jeux simple et efficace construit avec Electron.</p>
-                            <p class="about-description">Entièrement développé par Zetsukae avec <span class="heart-pulse">❤️</span></p>
-                        </div>
-                    </div>
-
-                    
-                    <div class="settings-section" data-section="info">
-                        <h3>Informations Système</h3>
-                        <div class="info-container">
-                            <div class="info-item">
-                                <span class="info-label">Plateforme:</span>
-                                <span id="platformInfo" class="info-value">-</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Langue:</span>
-                                <span id="languageInfo" class="info-value">-</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+          </div>
         </div>
+      </div>
     </div>
 
-    <script src="renderer.js"></script>
+    <footer class="dock">
+      <button class="dock-item settings-item" type="button" aria-label="Settings">
+        <img src="assets/icons/settings.png" alt="Settings" class="settings-icon" />
+      </button>
+      <button class="dock-item active" type="button" data-view="home">Home</button>
+      <button class="dock-item" type="button" data-view="me">Me</button>
+      <button class="dock-item" type="button" data-view="community">Community</button>
+      <button class="dock-item" type="button" data-view="messages">Messages</button>
+      <button class="dock-item" type="button" data-view="news">News</button>
+    </footer>
+  </div>
+
+  <script type="module" src="main.js"></script>
 </body>
 </html>

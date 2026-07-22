@@ -1,2 +1,23 @@
-/node_modules
-/dist
+# Node modules
+node_modules/
+
+# Tauri/Rust build output
+src-tauri/target/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor/temp files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+*.log
+*.bak
+*.old
+
+# Environment files
+.env
+.env.*

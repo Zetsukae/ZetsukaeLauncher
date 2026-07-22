@@ -1,48 +1,17 @@
 {
   "name": "zetsukae-launcher",
-  "version": "1.0.0",
-  "description": "A game launcher application built with Electron",
-  "main": "main.js",
-  "homepage": "./",
+  "private": true,
+  "version": "0.1.0",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron . --dev",
-    "build": "electron-builder",
-    "build:win": "electron-builder --windows"
+    "dev": "tauri dev",
+    "build": "tauri build"
   },
-  "keywords": [
-    "launcher",
-    "games",
-    "electron"
-  ],
-  "author": "Zetsukae",
-  "license": "MIT",
   "devDependencies": {
-    "electron": "^29.4.6",
-    "electron-builder": "^24.6.4"
+    "@tauri-apps/cli": "^2.11.4"
   },
-  "build": {
-    "appId": "com.zetsukae.launcher",
-    "productName": "Zetsukae Launcher",
-    "files": [
-      "main.js",
-      "preload.js",
-      "src/**/*"
-    ],
-    "directories": {
-      "buildResources": "src/assets"
-    },
-    "win": {
-      "icon": "src/assets/icon/icon.ico",
-      "target": [
-        "nsis"
-      ]
-    },
-    "linux": {
-      "icon": "src/assets/icon/icon.png",
-      "target": [
-        "AppImage"
-      ]
-    }
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-dialog": "^2.7.2",
+    "@tauri-apps/plugin-shell": "^2.3.5"
   }
 }

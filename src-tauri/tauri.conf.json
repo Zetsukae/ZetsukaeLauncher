@@ -1,0 +1,33 @@
+{
+  "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Zetsukae Launcher",
+  "version": "0.1.0",
+  "identifier": "com.zetsukae.launcher",
+  "build": {
+    "beforeBuildCommand": "",
+    "beforeDevCommand": "",
+    "frontendDist": "../src"
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "windows": {}
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Zetsukae Launcher",
+        "width": 1280,
+        "height": 720,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: https: data:;",
+      "capabilities": ["default"]
+    }
+  }
+}
