@@ -7,3 +7,6 @@
 [bg_icon]=https://i.imgur.com/hgoXDYJ.jpeg
 [bg_colorHEX]=4F4541
 [price]=0
+[WindowsPath]=%LOCALAPPDATA%\Programs\Pluberry
+[LinuxPath]=~/.local/share/Pluberry
+[MacPath]=~/Library/Application Support/Pluberry
