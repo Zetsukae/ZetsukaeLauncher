@@ -1,3 +1,5 @@
+import { initSupabaseAuth, openSupabaseSignIn, signOutSupabase } from './supabase-auth.js';
+
 // Retrieve Tauri v2 global API references safely
 const tauri = window.__TAURI__ || {};
 const shell = tauri.shell || (window.__TAURI_PLUGIN_SHELL__ ? window.__TAURI_PLUGIN_SHELL__ : {});
@@ -6,10 +8,12 @@ const os = tauri.os || {};
 const path = tauri.path || {};
 const tauriWindow = tauri.window || {};
 const core = tauri.core || (window.__TAURI__ ? window.__TAURI__.core : null);
+
 const appWindow = typeof tauriWindow.getCurrentWindow === 'function' ? tauriWindow.getCurrentWindow() : null;
 
 // DOM Elements
 const grid = document.querySelector('#gameGrid');
+const gridShell = document.querySelector('.grid-shell');
 const dockItems = Array.from(document.querySelectorAll('.dock-item[data-view]'));
 const pages = Array.from(document.querySelectorAll('.content-page'));
 const gameModal = document.getElementById('gameModal');
@@ -21,16 +25,13 @@ const gameModalPrice = document.getElementById('gameModalPrice');
 const chooseLocationButton = document.getElementById('chooseLocationButton');
 const chosenLocationText = document.getElementById('chosenLocationText');
 const gameWebsiteLink = document.getElementById('gameWebsiteLink');
+const viewLoader = document.getElementById('viewLoader');
 const launchGameButton = document.getElementById('launchGameButton');
 const steamGrid = document.getElementById('steamGrid');
 const steamFallbackMessage = document.getElementById('steamFallbackMessage');
 const savedGamesGrid = document.getElementById('savedGamesGrid');
 const savedGamesMessage = document.getElementById('savedGamesMessage');
 const savedGamesSection = document.getElementById('savedGamesSection');
-const settingsButton = document.querySelector('.dock-item.settings-item');
-const settingsModal = document.getElementById('settingsModal');
-const settingsModalBackdrop = document.getElementById('settingsModalBackdrop');
-const settingsModalClose = document.getElementById('settingsModalClose');
 const autoDetectSteamToggle = document.getElementById('autoDetectSteamToggle');
 const clearSavedPathsButton = document.getElementById('clearSavedPathsButton');
 const clearSteamCacheButton = document.getElementById('clearSteamCacheButton');
@@ -38,6 +39,13 @@ const reloadSteamButton = document.getElementById('reloadSteamButton');
 const backgroundStyleSelect = document.getElementById('backgroundStyleSelect');
 const backgroundImageInput = document.getElementById('backgroundImageInput');
 const backgroundSoundToggle = document.getElementById('backgroundSoundToggle');
+const supabaseLoginButton = document.getElementById('supabaseLoginButton');
+const supabaseLogoutButton = document.getElementById('supabaseLogoutButton');
+const supabaseStatusText = document.getElementById('supabaseStatusText');
+const discordRichPresenceToggle = document.getElementById('discordRichPresenceToggle');
+const logoRing = document.querySelector('.logo-ring');
+const titleText = document.querySelector('.title');
+const userSubtitle = document.getElementById('userSubtitle');
 
 // State variables
 let lastScroll = window.scrollY;
@@ -46,14 +54,86 @@ let activeGame = null;
 let activeGamePath = '';
 let steamGamesByTitle = new Map();
 let localGames = [];
+let supabaseSession = null;
 
 const GAMES_REPO_URL = 'https://api.github.com/repos/Zetsukae/ZetsukaeLauncher/contents/games';
 const GAMES_LOCAL_INDEX = 'games/index.json';
 const GAME_PATH_STORAGE_PREFIX = 'zetsukae_launcher_game_path_';
+const GAME_ICON_STORAGE_PREFIX = 'zetsukae_launcher_game_icon_';
+const GAME_META_STORAGE_PREFIX = 'zetsukae_launcher_game_meta_';
 const SETTINGS_STORAGE_KEY = 'zetsukae_launcher_settings';
 
 function normalizeStorageKey(value) {
   return String(value || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '');
+}
+
+function getSavedGameStorageKey(game) {
+  return normalizeStorageKey(game.name || game.title || '');
+}
+
+function getSavedGameMetadata(key) {
+  try {
+    const raw = window.localStorage?.getItem(`${GAME_META_STORAGE_PREFIX}${key}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    console.warn('Unable to parse saved game metadata:', error);
+    return null;
+  }
+}
+
+function saveSavedGameMetadata(key, metadata) {
+  try {
+    if (!key) return;
+    window.localStorage?.setItem(`${GAME_META_STORAGE_PREFIX}${key}`, JSON.stringify(metadata || {}));
+  } catch (error) {
+    console.warn('Unable to save saved game metadata:', error);
+  }
+}
+
+function removeSavedGameMetadata(key) {
+  try {
+    if (!key) return;
+    window.localStorage?.removeItem(`${GAME_META_STORAGE_PREFIX}${key}`);
+    window.localStorage?.removeItem(`${GAME_ICON_STORAGE_PREFIX}${key}`);
+  } catch (error) {
+    console.warn('Unable to remove saved game metadata:', error);
+  }
+}
+
+async function cacheSavedGameIcon(key, iconUrl) {
+  if (!key || !iconUrl || typeof window.localStorage?.getItem !== 'function') return;
+  try {
+    const cacheKey = `${GAME_ICON_STORAGE_PREFIX}${key}`;
+    if (window.localStorage.getItem(cacheKey)) return;
+
+    const response = await fetch(iconUrl, { mode: 'cors' });
+    if (!response.ok) {
+      return;
+    }
+
+    const blob = await response.blob();
+    const reader = new FileReader();
+    await new Promise((resolve, reject) => {
+      reader.onloadend = () => resolve();
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    const dataUrl = reader.result;
+    if (typeof dataUrl === 'string' && dataUrl.startsWith('data:')) {
+      window.localStorage.setItem(cacheKey, dataUrl);
+    }
+  } catch (error) {
+    console.warn('Unable to cache saved game icon:', error);
+  }
+}
+
+function getSavedGameIconSource(key) {
+  const cacheKey = `${GAME_ICON_STORAGE_PREFIX}${key}`;
+  const cached = window.localStorage?.getItem(cacheKey);
+  if (cached) return cached;
+  const metadata = getSavedGameMetadata(key);
+  return metadata?.icon || metadata?.bg_icon || '';
 }
 
 function getSavedGamePath(game) {
@@ -68,13 +148,33 @@ function getSavedGamePath(game) {
 
 function saveGamePath(game, gamePath) {
   try {
-    const key = `${GAME_PATH_STORAGE_PREFIX}${normalizeStorageKey(game.name || game.title || '')}`;
+    const storageKey = getSavedGameStorageKey(game);
+    const pathKey = `${GAME_PATH_STORAGE_PREFIX}${storageKey}`;
+
     if (!gamePath || /^(steam:\/\/|https?:\/\/)/i.test(gamePath)) {
-      window.localStorage?.removeItem(key);
+      window.localStorage?.removeItem(pathKey);
+      removeSavedGameMetadata(storageKey);
       renderSavedGames();
       return;
     }
-    window.localStorage?.setItem(key, gamePath);
+
+    window.localStorage?.setItem(pathKey, gamePath);
+
+    if (storageKey) {
+      saveSavedGameMetadata(storageKey, {
+        title: game.title || game.name || '',
+        name: game.name || game.title || '',
+        icon: game.icon || '',
+        bg_icon: game.bg_icon || ''
+      });
+
+      if (game.icon) {
+        cacheSavedGameIcon(storageKey, game.icon);
+      } else if (game.bg_icon) {
+        cacheSavedGameIcon(storageKey, game.bg_icon);
+      }
+    }
+
     renderSavedGames();
   } catch (error) {
     console.warn('Unable to save game path:', error);
@@ -91,14 +191,21 @@ function loadSettings() {
           autoDetectSteam: typeof parsed.autoDetectSteam === 'boolean' ? parsed.autoDetectSteam : true,
           backgroundStyle: typeof parsed.backgroundStyle === 'string' ? parsed.backgroundStyle : 'white',
           backgroundImage: typeof parsed.backgroundImage === 'string' ? parsed.backgroundImage : '',
-          backgroundSound: typeof parsed.backgroundSound === 'boolean' ? parsed.backgroundSound : false
+          backgroundSound: typeof parsed.backgroundSound === 'boolean' ? parsed.backgroundSound : false,
+          discordRichPresence: typeof parsed.discordRichPresence === 'boolean' ? parsed.discordRichPresence : true
         };
       }
     }
   } catch (error) {
     console.warn('Unable to load settings:', error);
   }
-  return { autoDetectSteam: true, backgroundStyle: 'white', backgroundImage: '', backgroundSound: false };
+  return {
+    autoDetectSteam: true,
+    backgroundStyle: 'white',
+    backgroundImage: '',
+    backgroundSound: false,
+    discordRichPresence: true
+  };
 }
 
 function saveSettings(settings) {
@@ -159,35 +266,137 @@ function updateBackgroundSound() {
   }
 }
 
-function openSettings() {
-  if (!settingsModal) return;
-  settingsModal.classList.remove('hidden');
-  settingsModal.setAttribute('aria-hidden', 'false');
-  if (autoDetectSteamToggle) {
-    autoDetectSteamToggle.checked = appSettings.autoDetectSteam;
+function maskEmail(email) {
+  if (!email || typeof email !== 'string') return '';
+  const [local, domain] = email.split('@');
+  if (!domain) return email;
+  const firstChar = local.charAt(0) || '';
+  return `${firstChar}***@${domain}`;
+}
+
+function getUserDisplayName(user) {
+  if (!user) return 'Guest';
+  const meta = user.user_metadata || {};
+  return (
+    meta.full_name ||
+    meta.name ||
+    meta.preferred_username ||
+    meta.username ||
+    meta.login ||
+    (user.email ? user.email.split('@')[0] : null) ||
+    user.id ||
+    'Guest'
+  );
+}
+
+function getUserAvatarUrl(user) {
+  if (!user) return null;
+  const meta = user.user_metadata || {};
+  return (
+    meta.avatar_url ||
+    meta.picture ||
+    meta.avatar ||
+    meta.image ||
+    meta.profile_image_url ||
+    null
+  );
+}
+
+function applyHeaderUserState(user) {
+  const displayName = getUserDisplayName(user);
+  const maskedEmail = maskEmail(user?.email);
+
+  if (titleText) {
+    titleText.textContent = user ? `Welcome, ${displayName}` : 'Welcome';
   }
-  if (backgroundStyleSelect) {
-    backgroundStyleSelect.value = appSettings.backgroundStyle || 'white';
+
+  if (userSubtitle) {
+    userSubtitle.textContent = user
+      ? maskedEmail
+        ? `Signed in as ${maskedEmail}`
+        : `Signed in as ${displayName}`
+      : 'Sign in with Discord to personalize';
   }
-  if (backgroundImageInput) {
-    backgroundImageInput.value = '';
-  }
-  if (backgroundSoundToggle) {
-    backgroundSoundToggle.checked = Boolean(appSettings.backgroundSound);
+
+  if (logoRing) {
+    const avatarUrl = getUserAvatarUrl(user);
+    if (avatarUrl) {
+      logoRing.style.backgroundImage = `url('${avatarUrl}')`;
+      logoRing.style.backgroundSize = 'cover';
+      logoRing.style.backgroundPosition = 'center';
+      logoRing.classList.add('avatar');
+    } else {
+      logoRing.style.backgroundImage = '';
+      logoRing.style.background = 'radial-gradient(circle at 35% 35%, #60b7ff, #b9f2ff 60%)';
+      logoRing.classList.remove('avatar');
+    }
   }
 }
 
-function closeSettings() {
-  if (!settingsModal) return;
-  settingsModal.classList.add('hidden');
-  settingsModal.setAttribute('aria-hidden', 'true');
+function updateSupabaseStatus() {
+  const user = supabaseSession?.user;
+  const isConnected = Boolean(user);
+
+  if (supabaseLoginButton) supabaseLoginButton.classList.toggle('hidden', isConnected);
+  if (supabaseLogoutButton) supabaseLogoutButton.classList.toggle('hidden', !isConnected);
+  if (supabaseStatusText) {
+    const maskedEmail = maskEmail(user?.email);
+    supabaseStatusText.textContent = isConnected
+      ? `Connected as ${maskedEmail || getUserDisplayName(user)}`
+      : 'Not connected to Discord.';
+  }
+
+  applyHeaderUserState(user);
+}
+
+async function initDiscordPresence() {
+  if (!core || typeof core.invoke !== 'function') {
+    console.warn('Tauri core invoke is unavailable for Discord presence.');
+    return;
+  }
+
+  try {
+    await core.invoke('init_discord_presence');
+    await setDiscordActivity('Browsing the launcher', 'Zetsukae Launcher');
+  } catch (error) {
+    console.warn('Unable to initialize Discord Rich Presence:', error);
+  }
+}
+
+async function clearDiscordActivity() {
+  if (!core || typeof core.invoke !== 'function') {
+    return;
+  }
+
+  try {
+    await core.invoke('clear_discord_activity');
+  } catch (error) {
+    console.warn('Unable to clear Discord Rich Presence:', error);
+  }
+}
+
+async function setDiscordActivity(details, stateText) {
+  if (!core || typeof core.invoke !== 'function') {
+    return;
+  }
+
+  try {
+    await core.invoke('set_discord_activity', {
+      details: details || '',
+      state_text: stateText || ''
+    });
+  } catch (error) {
+    console.warn('Unable to update Discord Rich Presence:', error);
+  }
 }
 
 function clearSavedGamePaths() {
   try {
     for (const key of Object.keys(window.localStorage || {})) {
       if (key.startsWith(GAME_PATH_STORAGE_PREFIX)) {
+        const storageKey = key.slice(GAME_PATH_STORAGE_PREFIX.length);
         window.localStorage.removeItem(key);
+        removeSavedGameMetadata(storageKey);
       }
     }
     renderSavedGames();
@@ -241,8 +450,26 @@ function renderSavedGames() {
     card.type = 'button';
 
     const icon = document.createElement('div');
-    icon.className = 'card-icon fallback';
-    icon.textContent = (entry.title || '?').charAt(0).toUpperCase();
+    icon.className = 'card-icon';
+
+    const savedKey = getSavedGameStorageKey({ title: entry.title, name: entry.title });
+    const iconSource = getSavedGameIconSource(savedKey);
+
+    if (iconSource) {
+      const image = document.createElement('img');
+      image.className = 'card-icon-image';
+      image.src = iconSource;
+      image.alt = entry.title || 'Saved game icon';
+      image.loading = 'lazy';
+      image.referrerPolicy = 'no-referrer';
+      image.addEventListener('error', () => {
+        image.remove();
+        icon.classList.add('fallback');
+      });
+      icon.appendChild(image);
+    } else {
+      icon.classList.add('fallback');
+    }
 
     const label = document.createElement('div');
     label.className = 'card-name';
@@ -590,24 +817,17 @@ function createGameCard(game) {
     image.loading = 'lazy';
     image.referrerPolicy = 'no-referrer';
 
-    const fallback = document.createElement('span');
-    fallback.className = 'fallback';
-    fallback.textContent = (game.title || game.name || '?').charAt(0).toUpperCase();
-
     image.addEventListener('error', () => {
       image.remove();
       icon.classList.add('fallback');
-      icon.appendChild(fallback);
+      icon.setAttribute('aria-label', game.title || game.name || 'Unknown game icon');
     });
 
     icon.appendChild(image);
     icon.setAttribute('aria-label', game.title || game.name || 'Game icon');
   } else {
     icon.classList.add('fallback');
-    const fallback = document.createElement('span');
-    fallback.className = 'fallback';
-    fallback.textContent = (game.title || game.name || '?').charAt(0).toUpperCase();
-    icon.appendChild(fallback);
+    icon.setAttribute('aria-label', game.title || game.name || 'Unknown game icon');
   }
 
   const label = document.createElement('div');
@@ -674,6 +894,21 @@ async function expandGamePath(gamePath) {
 /**
  * Toggle launch button state depending on path availability
  */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function showViewLoader() {
+  if (!viewLoader) return;
+  viewLoader.classList.remove('hidden');
+  void viewLoader.offsetWidth;
+}
+
+function hideViewLoader() {
+  if (!viewLoader) return;
+  viewLoader.classList.add('hidden');
+}
+
 function updateLaunchButtonState() {
   if (launchGameButton) {
     launchGameButton.disabled = !activeGamePath;
@@ -890,6 +1125,10 @@ async function launchGame() {
 
     if (launchSuccess) {
       if (activeGame) saveGamePath(activeGame, pathToLaunch);
+      await setDiscordActivity(
+        activeGame?.title ? `Playing ${activeGame.title}` : 'Launching a game',
+        'Zetsukae Launcher'
+      );
       setTimeout(async () => {
         try {
           if (appWindow && typeof appWindow.close === 'function') {
@@ -952,24 +1191,17 @@ function createSteamCard(game) {
     image.loading = 'lazy';
     image.referrerPolicy = 'no-referrer';
 
-    const fallback = document.createElement('span');
-    fallback.className = 'fallback';
-    fallback.textContent = (game.title || game.name || '?').charAt(0).toUpperCase();
-
     image.addEventListener('error', () => {
       image.remove();
       icon.classList.add('fallback');
-      icon.appendChild(fallback);
+      icon.setAttribute('aria-label', game.title || game.name || 'Unknown game icon');
     });
 
     icon.appendChild(image);
     icon.setAttribute('aria-label', game.title || game.name || 'Steam game icon');
   } else {
     icon.classList.add('fallback');
-    const fallback = document.createElement('span');
-    fallback.className = 'fallback';
-    fallback.textContent = (game.title || game.name || '?').charAt(0).toUpperCase();
-    icon.appendChild(fallback);
+    icon.setAttribute('aria-label', game.title || game.name || 'Unknown game icon');
   }
 
   const label = document.createElement('div');
@@ -1038,16 +1270,13 @@ function setActiveView(viewName) {
  */
 function bindNavigation() {
   dockItems.forEach(item => {
-    item.addEventListener('click', () => {
-      if (item.dataset.view) {
-        setActiveView(item.dataset.view);
-      }
+    item.addEventListener('click', (e) => {
+      if (!item.dataset.view) return;
+      // Use animated transition between views
+      animateToView(item.dataset.view);
     });
   });
 
-  if (settingsButton) {
-    settingsButton.addEventListener('click', openSettings);
-  }
 }
 
 /**
@@ -1099,8 +1328,6 @@ window.addEventListener('scroll', () => {
  * Application initialization
  */
 function bindSettings() {
-  if (settingsModalClose) settingsModalClose.addEventListener('click', closeSettings);
-  if (settingsModalBackdrop) settingsModalBackdrop.addEventListener('click', closeSettings);
   if (autoDetectSteamToggle) {
     autoDetectSteamToggle.checked = appSettings.autoDetectSteam;
     autoDetectSteamToggle.addEventListener('change', (event) => {
@@ -1126,6 +1353,24 @@ function bindSettings() {
       appSettings.backgroundStyle = event.target.value;
       saveSettings(appSettings);
       applyBackgroundStyle();
+    });
+  }
+  if (supabaseLoginButton) {
+    supabaseLoginButton.addEventListener('click', openSupabaseSignIn);
+  }
+  if (supabaseLogoutButton) {
+    supabaseLogoutButton.addEventListener('click', signOutSupabase);
+  }
+  if (discordRichPresenceToggle) {
+    discordRichPresenceToggle.checked = appSettings.discordRichPresence;
+    discordRichPresenceToggle.addEventListener('change', async (event) => {
+      appSettings.discordRichPresence = event.target.checked;
+      saveSettings(appSettings);
+      if (appSettings.discordRichPresence) {
+        await initDiscordPresence();
+      } else {
+        await clearDiscordActivity();
+      }
     });
   }
   if (backgroundImageInput) {
@@ -1168,13 +1413,20 @@ function bindSettings() {
   });
 }
 
-function init() {
+async function init() {
   document.body.classList.add('scrolling-up');
   applyBackgroundStyle();
   bindWindowControls();
   bindNavigation();
   bindGameModal();
   bindSettings();
+  await initSupabaseAuth((session) => {
+    supabaseSession = session;
+    updateSupabaseStatus();
+  });
+  if (appSettings.discordRichPresence) {
+    await initDiscordPresence();
+  }
   setActiveView('home');
   loadGamesFromGitHub();
   loadSteamGames();
@@ -1186,4 +1438,99 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
   init();
+}
+
+/**
+ * Animate transition between views with a directional swipe.
+ * direction: 'right' means target is located to the right of current
+ */
+async function animateToView(targetView) {
+  if (!gridShell) return setActiveView(targetView);
+  if (!targetView) return;
+  const currentPage = pages.find(p => p.classList.contains('active'));
+  const targetPage = pages.find(p => p.dataset.page === targetView);
+  if (!currentPage || !targetPage || currentPage === targetPage) {
+    return setActiveView(targetView);
+  }
+
+  const order = pages.map(p => p.dataset.page);
+  const currentIndex = order.indexOf(currentPage.dataset.page);
+  const targetIndex = order.indexOf(targetView);
+  // Inverted: treat targetIndex > currentIndex as 'left' to swap directions
+  const direction = targetIndex > currentIndex ? 'left' : 'right';
+
+  showViewLoader();
+
+  // Load the target scene before animation so content is ready.
+  setActiveView(targetView);
+  await sleep(100);
+
+  // Ensure both pages stay visible and overlayed during animation.
+  const previousStyles = new Map();
+  [currentPage, targetPage].forEach(page => {
+    previousStyles.set(page, {
+      position: page.style.position,
+      top: page.style.top,
+      left: page.style.left,
+      width: page.style.width,
+      height: page.style.height,
+      zIndex: page.style.zIndex,
+      display: page.style.display,
+      transition: page.style.transition,
+      transform: page.style.transform
+    });
+    page.style.position = 'absolute';
+    page.style.top = '0';
+    page.style.left = '0';
+    page.style.width = '100%';
+    page.style.height = '100%';
+  });
+  targetPage.style.zIndex = 2;
+  currentPage.style.zIndex = 1;
+
+  // Initial positions
+  targetPage.style.transition = 'none';
+  currentPage.style.transition = 'none';
+  targetPage.style.transform = direction === 'right' ? 'translateX(-100%)' : 'translateX(100%)';
+  currentPage.style.transform = 'translateX(0)';
+
+  // Force layout
+  void targetPage.offsetWidth;
+
+  // Animate to final positions
+  const duration = 360;
+  targetPage.style.transition = `transform ${duration}ms cubic-bezier(.2,.9,.2,1)`;
+  currentPage.style.transition = `transform ${duration}ms cubic-bezier(.2,.9,.2,1)`;
+  targetPage.style.transform = 'translateX(0)';
+  currentPage.style.transform = direction === 'right' ? 'translateX(100%)' : 'translateX(-100%)';
+
+  // Wait for transition end on targetPage
+  await new Promise(resolve => {
+    const onEnd = (e) => {
+      if (e.target !== targetPage) return;
+      targetPage.removeEventListener('transitionend', onEnd);
+      resolve();
+    };
+    targetPage.addEventListener('transitionend', onEnd);
+    // Fallback timeout
+    setTimeout(resolve, duration + 50);
+  });
+
+  // Cleanup inline styles and set active state
+  [currentPage, targetPage].forEach(page => {
+    const saved = previousStyles.get(page);
+    if (!saved) return;
+    page.style.position = saved.position;
+    page.style.top = saved.top;
+    page.style.left = saved.left;
+    page.style.width = saved.width;
+    page.style.height = saved.height;
+    page.style.zIndex = saved.zIndex;
+    page.style.transition = saved.transition;
+    page.style.transform = saved.transform;
+    page.style.display = saved.display;
+  });
+
+  hideViewLoader();
+  setActiveView(targetView);
 }

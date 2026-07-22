@@ -1,10 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Mutex;
+use std::thread;
 use serde::Serialize;
+use discord_rpc_client::Client;
 
 fn resolve_game_path(clean_path: &str) -> PathBuf {
     let target_path = PathBuf::from(clean_path);
@@ -36,6 +39,116 @@ fn resolve_game_path(clean_path: &str) -> PathBuf {
     }
 
     target_path
+}
+
+struct DiscordPresence(Mutex<Option<Client>>);
+
+fn parse_env_file(text: &str) -> HashMap<String, String> {
+    let mut env = HashMap::new();
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut parts = line.splitn(2, '=');
+        if let (Some(key), Some(value)) = (parts.next(), parts.next()) {
+            env.insert(key.trim().to_string(), value.trim().trim_matches('"').to_string());
+        }
+    }
+    env
+}
+
+fn load_env_from_file() -> Option<HashMap<String, String>> {
+    let candidates = ["../.env", "./.env"];
+    for candidate in candidates {
+        if let Ok(content) = std::fs::read_to_string(candidate) {
+            return Some(parse_env_file(&content));
+        }
+    }
+    None
+}
+
+fn parse_discord_app_id() -> Result<u64, String> {
+    if let Ok(raw) = std::env::var("DISCORD_RPC_APP_ID") {
+        return raw.parse::<u64>().map_err(|_| format!("Invalid DISCORD_RPC_APP_ID value: {}", raw));
+    }
+
+    if let Some(env) = load_env_from_file() {
+        if let Some(raw) = env.get("DISCORD_RPC_APP_ID") {
+            return raw.parse::<u64>().map_err(|_| format!("Invalid DISCORD_RPC_APP_ID value: {}", raw));
+        }
+    }
+
+    Err("Missing DISCORD_RPC_APP_ID environment variable. Set it in the app environment or .env file.".to_string())
+}
+
+fn spawn_discord_activity_task<F>(presence: tauri::State<'_, DiscordPresence>, task: F) -> Result<bool, String>
+where
+    F: FnOnce(&mut Client) -> Result<(), String> + Send + 'static,
+{
+    let client = {
+        let guard = presence.0.lock().map_err(|e| format!("Discord presence lock error: {}", e))?;
+        guard.as_ref().cloned()
+    };
+
+    if let Some(mut client) = client {
+        thread::spawn(move || {
+            if let Err(error) = task(&mut client) {
+                log::warn!("Discord presence task failed: {}", error);
+            }
+        });
+    }
+
+    Ok(true)
+}
+
+#[tauri::command]
+fn init_discord_presence(presence: tauri::State<'_, DiscordPresence>) -> Result<bool, String> {
+    let client_id = parse_discord_app_id()?;
+    let mut guard = presence.0.lock().map_err(|e| format!("Discord presence lock error: {}", e))?;
+    if guard.is_none() {
+        let mut client = Client::new(client_id);
+        client.start();
+        *guard = Some(client);
+    }
+    Ok(true)
+}
+
+#[tauri::command]
+fn set_discord_activity(
+    presence: tauri::State<'_, DiscordPresence>,
+    details: Option<String>,
+    state_text: Option<String>,
+) -> Result<bool, String> {
+    spawn_discord_activity_task(presence, move |client| {
+        client
+            .set_activity(|act| {
+                let mut activity = act;
+                if let Some(ref state_value) = state_text {
+                    if !state_value.is_empty() {
+                        activity = activity.state(state_value);
+                    }
+                }
+                if let Some(ref details_value) = details {
+                    if !details_value.is_empty() {
+                        activity = activity.details(details_value);
+                    }
+                }
+                activity
+            })
+            .map(|_| ())
+            .map_err(|e| format!("Failed to set Discord activity: {}", e))
+    })
+}
+
+#[tauri::command]
+fn clear_discord_activity(presence: tauri::State<'_, DiscordPresence>) -> Result<bool, String> {
+    spawn_discord_activity_task(presence, move |client| {
+        client
+            .clear_activity()
+            .map(|_| ())
+            .map_err(|e| format!("Failed to clear Discord activity: {}", e))
+    })
 }
 
 #[tauri::command]
@@ -250,7 +363,8 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init()) // Native File Dialog Enabled
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![open_game_file, detect_steam_games])
+        .manage(DiscordPresence(Mutex::new(None)))
+        .invoke_handler(tauri::generate_handler![open_game_file, detect_steam_games, init_discord_presence, set_discord_activity, clear_discord_activity])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

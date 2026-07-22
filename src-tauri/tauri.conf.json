@@ -26,7 +26,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: https: data:;",
+      "csp": "default-src 'self'; script-src 'self' https:; connect-src 'self' https://YOUR_PROJECT_ID.supabase.co; img-src 'self' asset: https: data:; style-src 'self' 'unsafe-inline';",
       "capabilities": ["default"]
     }
   }
