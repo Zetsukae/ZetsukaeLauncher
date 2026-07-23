@@ -1472,6 +1472,30 @@ function bindNavigation() {
 
 }
 
+function bindWindowDragging() {
+  const dragRegion = document.querySelector('[data-tauri-drag-region]');
+  if (!dragRegion || !appWindow || typeof appWindow.startDragging !== 'function') {
+    return;
+  }
+
+  const isInteractiveTarget = (target) => {
+    const element = target instanceof Element ? target : null;
+    return Boolean(element?.closest('button, input, select, textarea, a, [data-no-drag="true"]'));
+  };
+
+  dragRegion.addEventListener('pointerdown', async (event) => {
+    if (event.button !== 0) return;
+    if (isInteractiveTarget(event.target)) return;
+
+    try {
+      event.preventDefault();
+      await appWindow.startDragging();
+    } catch (error) {
+      console.warn('Unable to start dragging window:', error);
+    }
+  });
+}
+
 /**
  * Bind custom titlebar control buttons
  */
@@ -1655,6 +1679,7 @@ async function init() {
   document.body.classList.add('scrolling-up');
   applyLanguage(appSettings.language);
   applyBackgroundStyle();
+  bindWindowDragging();
   bindWindowControls();
   bindNavigation();
   bindGameModal();

@@ -353,6 +353,8 @@ body::after {
   justify-content: space-between;
   gap: 18px;
   padding: 18px 24px;
+  cursor: grab;
+  touch-action: none;
   margin-bottom: 20px;
   background: linear-gradient(180deg, rgba(255,255,255,.86), rgba(245,250,255,.68));
   border: 1px solid rgba(255,255,255,.7);
