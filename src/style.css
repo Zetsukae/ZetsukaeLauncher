@@ -192,6 +192,45 @@ body.background-night .card:hover {
   color: var(--text);
 }
 
+.saved-games-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 14px;
+}
+
+.saved-games-header .page-title {
+  margin-bottom: 12px;
+}
+
+.add-game-button {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  padding: 7px;
+  border: 1px solid rgba(148,163,184,.22);
+  border-radius: 50%;
+  background: rgba(255,255,255,.78);
+  box-shadow: 0 8px 22px rgba(15,23,42,.1), inset 0 0 0 1px rgba(255,255,255,.65);
+  cursor: pointer;
+  transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+
+.add-game-button:hover {
+  transform: translateY(-1px) scale(1.04);
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15,23,42,.14), inset 0 0 0 1px rgba(56,164,255,.24);
+}
+
+.add-game-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .card-subtitle {
   margin-top: 6px;
   color: var(--muted);
@@ -204,7 +243,7 @@ body.background-night .card:hover {
   position: fixed;
   z-index: 1000;
   max-width: 320px;
-  padding: 12px 14px;
+  padding: 10px;
   border-radius: 16px;
   background: rgba(15, 23, 42, 0.96);
   color: #f8fafc;
@@ -212,6 +251,31 @@ body.background-night .card:hover {
   box-shadow: 0 20px 60px rgba(15, 23, 42, 0.28);
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+.saved-game-delete-button {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(248,113,113,.18);
+  color: #fecaca;
+  font: inherit;
+  font-size: .88rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.saved-game-delete-button:hover {
+  background: rgba(248,113,113,.3);
+  color: #ffffff;
+}
+
+.saved-game-path-text {
+  padding: 2px 4px;
 }
 
 .settings-select {
@@ -376,42 +440,8 @@ body::after {
   overflow: hidden;
 }
 
-.view-loader {
-  position: absolute;
-  inset: 0;
-  z-index: 25;
-  display: grid;
-  place-items: center;
-  gap: 10px;
-  padding: 24px;
-  background: rgba(255,255,255,.88);
-  backdrop-filter: blur(16px);
-  color: #1f2937;
-  text-align: center;
-  font-weight: 700;
-}
-
 .hidden {
   display: none !important;
-}
-
-.view-loader.hidden {
-  display: none;
-}
-
-.view-loader-spinner {
-  width: 44px;
-  height: 44px;
-  border: 4px solid rgba(56,164,255,.24);
-  border-top-color: rgba(56,164,255,.9);
-  border-radius: 50%;
-  animation: view-loader-spin 1s linear infinite;
-}
-
-@keyframes view-loader-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .grid-shell::before,
@@ -437,10 +467,15 @@ body::after {
 
 .content-page {
   display: none;
+  backface-visibility: hidden;
 }
 
 .content-page.active {
   display: block;
+}
+
+.content-page[data-page="settings"] {
+  height: clamp(360px, 62vh, 500px);
 }
 
 .page-message {
@@ -507,15 +542,16 @@ body::after {
 }
 
 .card-icon {
-  width: 128px;
-  height: 128px;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   display: grid;
   place-items: center;
-  border-radius: 24px;
+  border-radius: inherit;
   overflow: hidden;
-  position: relative;
   background-color: rgba(255,255,255,.95);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.72);
+  z-index: 1;
 }
 
 .card-icon-image {
@@ -543,14 +579,14 @@ body::after {
 .card-name {
   width: calc(100% - 28px);
   text-align: center;
-  padding: 8px 12px;
-  border-radius: 999px;
-  color: #1f2937;
+  padding: 4px 8px;
+  border-radius: 0;
+  color: #ffffff;
   font-size: .9rem;
   font-weight: 700;
   position: absolute;
   left: 50%;
-  bottom: 18px;
+  bottom: 3px;
   transform: translateX(-50%) translateY(8px);
   opacity: 0;
   pointer-events: none;
@@ -560,12 +596,32 @@ body::after {
   word-break: break-word;
   line-height: 1.1rem;
   max-height: 5.5rem;
+  z-index: 3;
+  -webkit-text-stroke: 2px #17202b;
+  paint-order: stroke fill;
 }
 
 .card:hover .card-name,
 .card.selected .card-name {
   opacity: 1;
-  transform: translateX(-50%) translateY(80%);
+  transform: translateX(-50%) translateY(0);
+}
+
+.card-hover-frame {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease, transform .25s ease;
+}
+
+.card:hover .card-hover-frame,
+.card.selected .card-hover-frame {
+  opacity: 1;
 }
 
 .game-modal {
@@ -672,11 +728,92 @@ body::after {
   justify-content: flex-end;
 }
 
+.custom-game-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.custom-game-modal.hidden {
+  display: none;
+}
+
+.custom-game-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15,23,42,.45);
+  backdrop-filter: blur(6px);
+}
+
+.custom-game-panel {
+  position: relative;
+  z-index: 1;
+  width: min(520px, 100%);
+  display: grid;
+  gap: 18px;
+  padding: 30px;
+  border: 1px solid rgba(255,255,255,.6);
+  border-radius: 28px;
+  background: rgba(255,255,255,.92);
+  box-shadow: 0 40px 120px rgba(15,23,42,.2);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.custom-game-title {
+  margin: 0 42px 4px 0;
+  font-size: 1.45rem;
+}
+
+.custom-game-field {
+  display: grid;
+  gap: 8px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.custom-game-field input[type="text"],
+.custom-game-field input[type="file"] {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid rgba(148,163,184,.35);
+  border-radius: 14px;
+  background: rgba(255,255,255,.82);
+  color: var(--text);
+  font: inherit;
+}
+
+.custom-game-path-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.custom-game-path {
+  min-width: 0;
+  color: var(--muted);
+  font-size: .92rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.custom-game-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
 .settings-layout {
   display: grid;
   grid-template-columns: 220px 1fr;
   gap: 20px;
-  min-height: 100%;
+  height: calc(100% - 56px);
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -685,7 +822,7 @@ body::after {
   flex-direction: column;
   gap: 10px;
   padding: 16px;
-  min-height: 100%;
+  height: 100%;
   background: rgba(255,255,255,.75);
   border: 1px solid rgba(255,255,255,.6);
   border-radius: 30px;
@@ -714,10 +851,15 @@ body::after {
   transform: translateX(1px);
 }
 
+.about-settings-item {
+  margin-top: auto;
+}
+
 .settings-panel {
   display: grid;
   gap: 16px;
   overflow: auto;
+  min-height: 0;
   padding-right: 4px;
   background: rgba(255,255,255,.72);
   backdrop-filter: blur(18px);
@@ -744,6 +886,22 @@ body::after {
 
 .settings-row:last-child {
   border-bottom: none;
+}
+
+.about-title {
+  margin: 0;
+  font-size: 1.35rem;
+  color: var(--text);
+}
+
+.about-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.about-link-button {
+  min-width: 96px;
 }
 
 .settings-control-label {
@@ -810,6 +968,24 @@ body::after {
   z-index: 10;
 }
 
+.dock-indicator {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 0;
+  border-radius: 999px;
+  background: rgba(56,164,255,.18);
+  box-shadow: inset 0 0 0 1px rgba(56,164,255,.2), 0 8px 20px rgba(56,164,255,.12);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform .38s cubic-bezier(.22,.61,.36,1), width .38s cubic-bezier(.22,.61,.36,1), opacity .2s ease;
+}
+
+.dock-indicator.ready {
+  opacity: 1;
+}
+
 body.background-night .dock {
   background: rgba(15,23,42,.82);
   border-color: rgba(255,255,255,.08);
@@ -823,7 +999,12 @@ body.background-night .dock-item {
 body.background-night .dock-item:hover,
 body.background-night .dock-item.active {
   color: #f8fafc;
-  background: rgba(56,164,255,.18);
+  background: transparent;
+}
+
+body.background-night .dock-indicator {
+  background: rgba(56,164,255,.24);
+  box-shadow: inset 0 0 0 1px rgba(96,165,250,.35), 0 8px 24px rgba(37,99,235,.2);
 }
 
 body.scrolling-down .dock {
@@ -837,6 +1018,8 @@ body.scrolling-up .dock {
 }
 
 .dock-item {
+  position: relative;
+  z-index: 1;
   padding: 6px 10px;
   border-radius: 999px;
   color: var(--muted);
@@ -855,7 +1038,7 @@ body.scrolling-up .dock {
 .dock-item:hover,
 .dock-item.active {
   color: var(--text);
-  background: rgba(56,164,255,.18);
+  background: transparent;
 }
 
 .dock-item.settings-item {
@@ -874,6 +1057,18 @@ body.scrolling-up .dock {
   height: 48px;
   object-fit: contain;
   display: block;
+  transition: transform .38s cubic-bezier(.22,.61,.36,1), filter .38s ease;
+}
+
+.dock-item.active .dock-icon {
+  transform: scale(1.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock-indicator,
+  .dock-icon {
+    transition-duration: 1ms;
+  }
 }
 
 @media (max-width: 1024px) {

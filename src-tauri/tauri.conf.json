@@ -1,7 +1,7 @@
 {
   "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Zetsukae Launcher",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "identifier": "com.zetsukae.launcher",
   "build": {
     "beforeBuildCommand": "",
@@ -10,7 +10,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": ["nsis", "deb", "appimage"],
     "windows": {}
   },
   "app": {
@@ -26,7 +26,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' https:; connect-src 'self' https://YOUR_PROJECT_ID.supabase.co; img-src 'self' asset: https: data:; style-src 'self' 'unsafe-inline';",
+      "csp": "default-src 'self'; script-src 'self' https:; connect-src 'self' https://dcngqcuaqsrjdcfjmjul.supabase.co; img-src 'self' asset: https: data:; style-src 'self' 'unsafe-inline';",
       "capabilities": ["default"]
     }
   }

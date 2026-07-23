@@ -43,6 +43,12 @@ fn resolve_game_path(clean_path: &str) -> PathBuf {
 
 struct DiscordPresence(Mutex<Option<Client>>);
 
+#[derive(Serialize)]
+struct SupabaseConfig {
+    url: String,
+    publishable_key: String,
+}
+
 fn parse_env_file(text: &str) -> HashMap<String, String> {
     let mut env = HashMap::new();
     for line in text.lines() {
@@ -59,13 +65,32 @@ fn parse_env_file(text: &str) -> HashMap<String, String> {
 }
 
 fn load_env_from_file() -> Option<HashMap<String, String>> {
-    let candidates = ["../.env", "./.env"];
+    let candidates = ["../.env", "./.env", "./src-tauri/.env", "../src-tauri/.env"];
     for candidate in candidates {
         if let Ok(content) = std::fs::read_to_string(candidate) {
             return Some(parse_env_file(&content));
         }
     }
     None
+}
+
+#[tauri::command]
+fn get_supabase_config() -> Result<SupabaseConfig, String> {
+    let file_env = load_env_from_file().unwrap_or_default();
+    let url = option_env!("ZETSUPABASE_URL")
+        .or_else(|| file_env.get("NEXT_PUBLIC_SUPABASE_URL").map(String::as_str))
+        .unwrap_or("")
+        .to_string();
+    let publishable_key = option_env!("ZETSUPABASE_PUBLISHABLE_KEY")
+        .or_else(|| file_env.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY").map(String::as_str))
+        .unwrap_or("")
+        .to_string();
+
+    if url.is_empty() || publishable_key.is_empty() {
+        return Err("Supabase credentials are missing from .env".to_string());
+    }
+
+    Ok(SupabaseConfig { url, publishable_key })
 }
 
 fn parse_discord_app_id() -> Result<u64, String> {
@@ -338,6 +363,10 @@ fn detect_steam_games() -> Result<Vec<SteamGame>, String> {
                 if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
                     if name.starts_with("appmanifest_") && name.ends_with(".acf") {
                         if let Some((appid, title)) = parse_app_manifest(&path) {
+                            if title.trim().to_ascii_lowercase().starts_with("steamworks") {
+                                continue;
+                            }
+
                             if !seen.insert(appid.clone()) {
                                 continue;
                             }
@@ -364,7 +393,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init()) // Native File Dialog Enabled
         .plugin(tauri_plugin_shell::init())
         .manage(DiscordPresence(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![open_game_file, detect_steam_games, init_discord_presence, set_discord_activity, clear_discord_activity])
+        .invoke_handler(tauri::generate_handler![open_game_file, detect_steam_games, init_discord_presence, set_discord_activity, clear_discord_activity, get_supabase_config])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

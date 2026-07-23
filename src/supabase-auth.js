@@ -18,7 +18,21 @@ function parseEnv(text) {
 }
 
 async function loadEnvFile() {
-  const candidates = ['../.env', './.env'];
+  const tauriInvoke = window.__TAURI__?.core?.invoke;
+  if (typeof tauriInvoke === 'function') {
+    try {
+      const config = await tauriInvoke('get_supabase_config');
+      return {
+        NEXT_PUBLIC_SUPABASE_URL: config.url,
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: config.publishable_key
+      };
+    } catch (error) {
+      console.warn('Unable to load Supabase config from Tauri:', error);
+    }
+  }
+
+  // Prefer the frontend `src/.env` so the web UI uses its local env file first.
+  const candidates = ['./src/.env', './.env', '/.env', '../.env', '../src/.env', '../../.env'];
   for (const candidate of candidates) {
     try {
       const response = await fetch(candidate, { cache: 'no-store' });

@@ -13,8 +13,8 @@
       <div class="title-block">
         <div class="logo-ring"></div>
         <div>
-          <div class="title">Welcome</div>
-          <div class="subtitle" id="userSubtitle">Sign in with Discord to personalize</div>
+          <div class="title" data-i18n="welcome">Welcome</div>
+          <div class="subtitle" id="userSubtitle" data-i18n="signInPersonalize">Sign in with Discord to personalize</div>
         </div>
       </div>
 
@@ -26,32 +26,137 @@
     </header>
 
     <main class="grid-shell">
-      <div class="view-loader hidden" id="viewLoader" aria-hidden="true">
-        <div class="view-loader-spinner"></div>
-        <span>Loading…</span>
-      </div>
       <section class="content-page active" data-page="home">
         <div class="grid" id="gameGrid"></div>
       </section>
       <section class="content-page" data-page="me">
         <div class="saved-games-section" id="savedGamesSection">
-          <div class="page-title">My games</div>
-          <div class="page-message" id="savedGamesMessage">No saved games yet.</div>
+          <div class="saved-games-header">
+            <div class="page-title" data-i18n="myGames">My games</div>
+            <button class="add-game-button" id="addCustomGameButton" type="button" aria-label="Add a custom game" title="Add a custom game">
+              <img src="assets/icons/add.png" alt="" class="add-game-icon" />
+            </button>
+          </div>
+          <div class="page-message" id="savedGamesMessage" data-i18n="noSavedGames">No saved games yet.</div>
           <div class="grid" id="savedGamesGrid"></div>
         </div>
-        <div class="page-title">Steam games</div>
-        <div class="page-message" id="steamFallbackMessage">Detecting Steam games...</div>
+        <div class="page-title" data-i18n="steamGames">Steam games</div>
+        <div class="page-message" id="steamFallbackMessage" data-i18n="detectingSteam">Detecting Steam games...</div>
         <div class="grid" id="steamGrid"></div>
       </section>
       <section class="content-page" data-page="community">
-        <div class="page-message">Coming soon</div>
+        <div class="page-message" data-i18n="comingSoon">Coming soon</div>
       </section>
       <section class="content-page" data-page="messages">
-        <div class="page-message">Coming soon</div>
+        <div class="page-message" data-i18n="comingSoon">Coming soon</div>
       </section>
       <section class="content-page" data-page="news">
-        <div class="page-message">Coming soon</div>
+        <div class="page-message" data-i18n="comingSoon">Coming soon</div>
       </section>
+
+    <section class="content-page" data-page="settings">
+      <div class="page-title" data-i18n="settings">Settings</div>
+      <div class="settings-layout">
+        <aside class="settings-sidebar">
+          <button class="settings-sidebar-item active" type="button" data-settings-section="general" data-i18n="general">General</button>
+          <button class="settings-sidebar-item" type="button" data-settings-section="discord" data-i18n="discord">Discord</button>
+          <button class="settings-sidebar-item" type="button" data-settings-section="steam" data-i18n="steam">Steam</button>
+          <button class="settings-sidebar-item" type="button" data-settings-section="appearance" data-i18n="appearance">Appearance</button>
+          <button class="settings-sidebar-item about-settings-item" type="button" data-settings-section="about" data-i18n="about">About</button>
+        </aside>
+        <div class="settings-panel">
+          <section class="settings-section active" data-settings-section="general">
+            <div class="settings-row">
+              <label class="settings-control-label" for="languageSelect" data-i18n="language">Language</label>
+              <select id="languageSelect" class="settings-select" aria-label="Language">
+                <option value="en">English</option>
+                <option value="fr">Français</option>
+              </select>
+              <p class="settings-description" data-i18n="languageDescription">Choose the language used throughout the launcher.</p>
+            </div>
+            <div class="settings-row">
+              <button class="btn secondary" id="clearSavedPathsButton" type="button" data-i18n="clearSavedPaths">Clear saved game paths</button>
+              <p class="settings-description" data-i18n="clearSavedPathsDescription">Remove all locally saved game file locations.</p>
+            </div>
+          </section>
+          <section class="settings-section" data-settings-section="discord">
+            <div class="settings-row">
+              <label class="settings-control-label">
+                <input id="discordRichPresenceToggle" type="checkbox" />
+                <span data-i18n="enableDiscordRichPresence">Enable Discord Rich Presence</span>
+              </label>
+              <p class="settings-description" data-i18n="discordDescription">Show your launcher activity in Discord.</p>
+            </div>
+            <div class="settings-row">
+              <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <button class="btn primary" id="supabaseLoginButton" type="button" data-i18n="connectDiscord">Connect with Discord</button>
+                <button class="btn secondary hidden" id="supabaseLogoutButton" type="button" data-i18n="disconnect">Disconnect</button>
+              </div>
+              <p class="settings-description" id="supabaseStatusText" data-i18n="notConnectedDiscord">Not connected to Discord.</p>
+            </div>
+          </section>
+          <section class="settings-section" data-settings-section="steam">
+            <div class="settings-row">
+              <label class="settings-control-label">
+                <input id="autoDetectSteamToggle" type="checkbox" />
+                <span data-i18n="autoDetectSteam">Auto-detect Steam games</span>
+              </label>
+              <p class="settings-description" data-i18n="autoDetectSteamDescription">Automatically detect installed Steam games on startup.</p>
+            </div>
+            <div class="settings-row">
+              <button class="btn secondary" id="clearSteamCacheButton" type="button" data-i18n="clearSteamCache">Clear Steam cache</button>
+              <p class="settings-description" data-i18n="clearSteamCacheDescription">Force Steam game re-detection on next refresh.</p>
+            </div>
+            <div class="settings-row">
+              <button class="btn primary" id="reloadSteamButton" type="button" data-i18n="refreshSteamGames">Refresh Steam games</button>
+            </div>
+          </section>
+          <section class="settings-section" data-settings-section="appearance">
+            <div class="settings-row">
+              <label class="settings-control-label" for="backgroundStyleSelect" data-i18n="appBackground">App background</label>
+              <select id="backgroundStyleSelect" class="settings-select">
+                <option value="white" data-i18n="white">White</option>
+                <option value="gradient" data-i18n="blueGradient">Blue Gradient</option>
+                <option value="night" data-i18n="night">Night</option>
+                <option value="custom" data-i18n="customImage">Custom image</option>
+              </select>
+              <p class="settings-description" data-i18n="backgroundDescription">Choose an app background style or use your own image.</p>
+            </div>
+            <div class="settings-row">
+              <label class="settings-control-label" for="backgroundImageInput" data-i18n="customBackgroundImage">Custom background image</label>
+              <input id="backgroundImageInput" class="settings-select" type="file" accept="image/*" />
+              <p class="settings-description" data-i18n="customBackgroundDescription">Pick an image file to use as the app background when Custom image is selected.</p>
+            </div>
+            <div class="settings-row">
+              <label class="settings-control-label">
+                <input id="backgroundSoundToggle" type="checkbox" />
+                <span data-i18n="enableBackgroundSound">Enable background sound</span>
+              </label>
+              <p class="settings-description" data-i18n="backgroundSoundDescription">Play the OG song on loop when enabled.</p>
+            </div>
+          </section>
+          <section class="settings-section" data-settings-section="about">
+            <div class="settings-row about-section-intro">
+              <h2 class="about-title" data-i18n="aboutTitle">Welcome to the central hub of the Zetsukae ecosystem</h2>
+              <p class="settings-description" data-i18n="aboutDescription">Built with Tauri for maximum performance and lightweight efficiency, the official Zetsukae Launcher brings all my games, apps, and community creations together under one roof. Stay in the loop with real-time updates, patch notes, and news on all my ongoing projects, everything you need, right at your fingertips.</p>
+            </div>
+            <div class="settings-row">
+              <span class="settings-control-label" data-i18n="version">Version</span>
+              <p class="settings-description">1.0.0</p>
+            </div>
+            <div class="settings-row about-links-row">
+              <span class="settings-control-label" data-i18n="links">Links</span>
+              <div class="about-links">
+                <button class="btn secondary about-link-button" type="button" data-external-url="https://github.com/Zetsukae/ZetsukaeLauncher">GitHub</button>
+                <button class="btn secondary about-link-button" type="button" data-external-url="https://github.com/Zetsukae/ZetsukaeLauncher/issues">Issues</button>
+                <button class="btn secondary about-link-button" type="button" data-external-url="https://discord.gg/u3SwvGVvGD">Discord</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+
     </main>
 
     <div class="game-modal hidden" id="gameModal" aria-hidden="true">
@@ -60,97 +165,52 @@
         <button class="modal-close" id="gameModalClose" type="button" aria-label="Close details">✕</button>
         <div class="game-modal-hero" id="gameModalHero"></div>
         <div class="game-modal-content">
-          <h2 class="game-modal-title" id="gameModalTitle">Game details</h2>
+          <h2 class="game-modal-title" id="gameModalTitle" data-i18n="gameDetails">Game details</h2>
           <p class="game-modal-price" id="gameModalPrice"></p>
           <div class="game-modal-row">
-            <button class="btn secondary" id="chooseLocationButton" type="button">Choose path</button>
-            <span class="game-modal-location" id="chosenLocationText">No path selected</span>
+            <button class="btn secondary" id="chooseLocationButton" type="button" data-i18n="choosePath">Choose path</button>
+            <span class="game-modal-location" id="chosenLocationText" data-i18n="noPathSelected">No path selected</span>
           </div>
           <div class="game-modal-row">
-            <span class="game-modal-label">Website:</span>
-            <a class="game-modal-link" id="gameWebsiteLink" href="#" target="_blank" rel="noreferrer noopener">No website</a>
+            <span class="game-modal-label" data-i18n="website">Website:</span>
+            <a class="game-modal-link" id="gameWebsiteLink" href="#" target="_blank" rel="noreferrer noopener" data-i18n="noWebsite">No website</a>
           </div>
           <div class="game-modal-actions">
-            <button class="btn primary" id="launchGameButton" type="button" disabled>Launch</button>
+            <button class="btn primary" id="launchGameButton" type="button" disabled data-i18n="launch">Launch</button>
           </div>
         </div>
       </div>
     </div>
 
-    <section class="content-page" data-page="settings">
-      <div class="page-title">Settings</div>
-      <div class="settings-layout">
-        <aside class="settings-sidebar">
-          <button class="settings-sidebar-item active" type="button" data-settings-section="general">General</button>
-          <button class="settings-sidebar-item" type="button" data-settings-section="steam">Steam</button>
-          <button class="settings-sidebar-item" type="button" data-settings-section="appearance">Appearance</button>
-        </aside>
-        <div class="settings-panel">
-          <section class="settings-section active" data-settings-section="general">
-            <div class="settings-row">
-              <label class="settings-control-label">
-                <input id="discordRichPresenceToggle" type="checkbox" />
-                Activer Discord Rich Presence
-              </label>
-              <p class="settings-description">Show your launcher activity in Discord while using Zetsukae.</p>
-            </div>
-            <div class="settings-row">
-              <button class="btn secondary" id="clearSavedPathsButton" type="button">Clear saved game paths</button>
-              <p class="settings-description">Remove all locally saved game file locations.</p>
-            </div>
-            <div class="settings-row">
-              <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-                <button class="btn primary" id="supabaseLoginButton" type="button">Connect with Discord</button>
-                <button class="btn secondary hidden" id="supabaseLogoutButton" type="button">Disconnect</button>
-              </div>
-              <p class="settings-description" id="supabaseStatusText">Not connected to Discord.</p>
-            </div>
-          </section>
-          <section class="settings-section" data-settings-section="steam">
-            <div class="settings-row">
-              <label class="settings-control-label">
-                <input id="autoDetectSteamToggle" type="checkbox" />
-                Auto-detect Steam games
-              </label>
-              <p class="settings-description">Automatically detect installed Steam games on startup.</p>
-            </div>
-            <div class="settings-row">
-              <button class="btn secondary" id="clearSteamCacheButton" type="button">Clear Steam cache</button>
-              <p class="settings-description">Force Steam game re-detection on next refresh.</p>
-            </div>
-            <div class="settings-row">
-              <button class="btn primary" id="reloadSteamButton" type="button">Refresh Steam games</button>
-            </div>
-          </section>
-          <section class="settings-section" data-settings-section="appearance">
-            <div class="settings-row">
-              <label class="settings-control-label" for="backgroundStyleSelect">App background</label>
-              <select id="backgroundStyleSelect" class="settings-select">
-                <option value="white">White</option>
-                <option value="gradient">Blue Gradient</option>
-                <option value="night">Night</option>
-                <option value="custom">Custom image</option>
-              </select>
-              <p class="settings-description">Choose an app background style or use your own image.</p>
-            </div>
-            <div class="settings-row">
-              <label class="settings-control-label" for="backgroundImageInput">Custom background image</label>
-              <input id="backgroundImageInput" class="settings-select" type="file" accept="image/*" />
-              <p class="settings-description">Pick an image file to use as the app background when Custom image is selected.</p>
-            </div>
-            <div class="settings-row">
-              <label class="settings-control-label">
-                <input id="backgroundSoundToggle" type="checkbox" />
-                Enable background sound
-              </label>
-              <p class="settings-description">Play the OG song on loop when enabled.</p>
-            </div>
-          </section>
+    <div class="custom-game-modal hidden" id="customGameModal" aria-hidden="true">
+      <div class="custom-game-modal-backdrop" id="customGameModalBackdrop"></div>
+      <form class="custom-game-panel" id="customGameForm">
+        <button class="modal-close" id="customGameModalClose" type="button" aria-label="Close">✕</button>
+        <h2 class="custom-game-title" data-i18n="addCustomGame">Add custom game</h2>
+        <label class="custom-game-field">
+          <span data-i18n="customGameName">Name</span>
+          <input id="customGameNameInput" type="text" required maxlength="80" autocomplete="off" />
+        </label>
+        <label class="custom-game-field">
+          <span data-i18n="customGameImage">Image</span>
+          <input id="customGameImageInput" type="file" accept="image/*" />
+        </label>
+        <div class="custom-game-field">
+          <span data-i18n="customGamePath">Path</span>
+          <div class="custom-game-path-row">
+            <button class="btn secondary" id="customGamePathButton" type="button" data-i18n="choosePath">Choose path</button>
+            <span class="custom-game-path" id="customGamePathText" data-i18n="noPathSelected">No path selected</span>
+          </div>
         </div>
-      </div>
-    </section>
+        <div class="custom-game-actions">
+          <button class="btn secondary" id="customGameCancelButton" type="button" data-i18n="cancel">Cancel</button>
+          <button class="btn primary" type="submit" data-i18n="add">Add</button>
+        </div>
+      </form>
+    </div>
 
     <footer class="dock">
+      <span class="dock-indicator" aria-hidden="true"></span>
       <button class="dock-item settings-item" type="button" data-view="settings" aria-label="Settings">
         <img src="assets/icons/settings.png" alt="Settings" class="dock-icon" />
       </button>
